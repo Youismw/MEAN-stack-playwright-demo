@@ -1,6 +1,6 @@
 import { test as baseTest, expect } from '@playwright/test';
 
-export const test = baseTest.extend({
+export const test = baseTest.extend<{ autoReset: void }>({
   autoReset: [
     async ({ request }, use) => {
       const res = await request.post('/api/test/reset');
