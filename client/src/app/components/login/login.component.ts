@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -20,8 +20,8 @@ import { AuthService } from '../../services/auth.service';
         </div>
 
         <form (ngSubmit)="onSubmit()" class="login-form">
-          <div *ngIf="errorMessage" data-testid="login-error" role="alert" class="alert-box alert-danger">
-            {{ errorMessage }}
+          <div *ngIf="errorMessage()" data-testid="login-error" role="alert" class="alert-box alert-danger">
+            {{ errorMessage() }}
           </div>
 
           <div class="form-group">
@@ -56,9 +56,9 @@ import { AuthService } from '../../services/auth.service';
             type="submit"
             data-testid="login-submit"
             class="btn btn-primary btn-block"
-            [disabled]="loading"
+            [disabled]="loading()"
           >
-            {{ loading ? 'Signing In...' : 'Sign In' }}
+            {{ loading() ? 'Signing In...' : 'Sign In' }}
           </button>
         </form>
 
@@ -164,10 +164,14 @@ import { AuthService } from '../../services/auth.service';
 export class LoginComponent implements OnInit {
   email = '';
   password = '';
-  errorMessage = '';
-  loading = false;
+  errorMessage = signal('');
+  loading = signal(false);
 
-  constructor(private authService: AuthService, private router: Router) {}
+  constructor(
+    private authService: AuthService,
+    private router: Router,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
     if (this.authService.isAuthenticated()) {
@@ -176,21 +180,24 @@ export class LoginComponent implements OnInit {
   }
 
   onSubmit(): void {
-    this.errorMessage = '';
-    this.loading = true;
+    this.errorMessage.set('');
+    this.loading.set(true);
+    this.cdr.markForCheck();
 
     this.authService.login(this.email, this.password).subscribe({
       next: () => {
-        this.loading = false;
+        this.loading.set(false);
+        this.cdr.markForCheck();
         this.router.navigate(['/tickets']);
       },
       error: (err) => {
-        this.loading = false;
+        this.loading.set(false);
         if (err.status === 401) {
-          this.errorMessage = err.error?.message || 'Invalid email or password';
+          this.errorMessage.set(err.error?.message || 'Invalid email or password');
         } else {
-          this.errorMessage = err.error?.message || 'Failed to sign in. Please try again.';
+          this.errorMessage.set(err.error?.message || 'Failed to sign in. Please try again.');
         }
+        this.cdr.markForCheck();
       },
     });
   }

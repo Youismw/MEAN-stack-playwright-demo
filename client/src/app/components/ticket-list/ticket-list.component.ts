@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TicketService, Ticket } from '../../services/ticket.service';
@@ -67,14 +67,14 @@ import { AuthService } from '../../services/auth.service';
         </section>
 
         <!-- Loading Spinner -->
-        <div *ngIf="loading" data-testid="list-loading" class="loading-state">
+        <div *ngIf="loading()" data-testid="list-loading" class="loading-state">
           <div class="spinner"></div>
           <span>Loading tickets...</span>
         </div>
 
         <!-- Empty State -->
         <div
-          *ngIf="!loading && tickets.length === 0"
+          *ngIf="!loading() && tickets().length === 0"
           data-testid="ticket-empty"
           class="empty-card"
         >
@@ -85,12 +85,12 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- Ticket List Container -->
         <div
-          *ngIf="!loading && tickets.length > 0"
+          *ngIf="!loading() && tickets().length > 0"
           data-testid="ticket-list"
           class="ticket-grid"
         >
           <article
-            *ngFor="let ticket of tickets"
+            *ngFor="let ticket of tickets()"
             data-testid="ticket-row"
             [attr.data-ticket-id]="ticket._id"
             class="ticket-card"
@@ -142,7 +142,7 @@ import { AuthService } from '../../services/auth.service';
       </main>
 
       <!-- Ticket Form Modal (Create / Edit) -->
-      <div *ngIf="isFormModalOpen" class="modal-overlay">
+      <div *ngIf="isFormModalOpen()" class="modal-overlay">
         <div class="modal-content">
           <div class="modal-header">
             <h3>{{ editingTicketId ? 'Edit Ticket' : 'Create New Ticket' }}</h3>
@@ -168,12 +168,12 @@ import { AuthService } from '../../services/auth.service';
                 required
               />
               <div
-                *ngIf="titleError"
+                *ngIf="titleError()"
                 data-testid="ticket-title-error"
                 role="alert"
                 class="field-error"
               >
-                {{ titleError }}
+                {{ titleError() }}
               </div>
             </div>
 
@@ -225,8 +225,8 @@ import { AuthService } from '../../services/auth.service';
             </div>
 
             <!-- Server Error -->
-            <div *ngIf="formServerError" role="alert" class="alert-box alert-danger">
-              {{ formServerError }}
+            <div *ngIf="formServerError()" role="alert" class="alert-box alert-danger">
+              {{ formServerError() }}
             </div>
 
             <div class="modal-footer">
@@ -241,9 +241,9 @@ import { AuthService } from '../../services/auth.service';
                 type="submit"
                 data-testid="ticket-submit"
                 class="btn btn-primary"
-                [disabled]="isSubmitting"
+                [disabled]="isSubmitting()"
               >
-                {{ isSubmitting ? 'Saving...' : 'Save Ticket' }}
+                {{ isSubmitting() ? 'Saving...' : 'Save Ticket' }}
               </button>
             </div>
           </form>
@@ -252,7 +252,7 @@ import { AuthService } from '../../services/auth.service';
 
       <!-- Custom Confirm Deletion Modal -->
       <div
-        *ngIf="isConfirmModalOpen"
+        *ngIf="isConfirmModalOpen()"
         data-testid="confirm-dialog"
         class="modal-overlay"
       >
@@ -568,28 +568,29 @@ import { AuthService } from '../../services/auth.service';
   `],
 })
 export class TicketListComponent implements OnInit {
-  tickets: Ticket[] = [];
+  tickets = signal<Ticket[]>([]);
   selectedStatus = 'All';
-  loading = true;
+  loading = signal<boolean>(true);
 
   // Form modal state
-  isFormModalOpen = false;
+  isFormModalOpen = signal(false);
   editingTicketId: string | null = null;
   formTitle = '';
   formDescription = '';
   formPriority: 'Low' | 'Medium' | 'High' | 'Urgent' = 'Medium';
   formStatus: 'Open' | 'In Progress' | 'Resolved' | 'Closed' = 'Open';
-  titleError = '';
-  formServerError = '';
-  isSubmitting = false;
+  titleError = signal('');
+  formServerError = signal('');
+  isSubmitting = signal(false);
 
   // Delete modal state
-  isConfirmModalOpen = false;
+  isConfirmModalOpen = signal(false);
   deletingTicket: Ticket | null = null;
 
   constructor(
     private ticketService: TicketService,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -597,14 +598,17 @@ export class TicketListComponent implements OnInit {
   }
 
   loadTickets(): void {
-    this.loading = true;
+    this.loading.set(true);
+    this.cdr.markForCheck();
     this.ticketService.getTickets(this.selectedStatus).subscribe({
       next: (data) => {
-        this.tickets = data;
-        this.loading = false;
+        this.tickets.set(data);
+        this.loading.set(false);
+        this.cdr.markForCheck();
       },
       error: () => {
-        this.loading = false;
+        this.loading.set(false);
+        this.cdr.markForCheck();
       },
     });
   }
@@ -624,9 +628,10 @@ export class TicketListComponent implements OnInit {
     this.formDescription = '';
     this.formPriority = 'Medium';
     this.formStatus = 'Open';
-    this.titleError = '';
-    this.formServerError = '';
-    this.isFormModalOpen = true;
+    this.titleError.set('');
+    this.formServerError.set('');
+    this.isFormModalOpen.set(true);
+    this.cdr.markForCheck();
   }
 
   openEditModal(ticket: Ticket): void {
@@ -635,33 +640,37 @@ export class TicketListComponent implements OnInit {
     this.formDescription = ticket.description || '';
     this.formPriority = ticket.priority;
     this.formStatus = ticket.status;
-    this.titleError = '';
-    this.formServerError = '';
-    this.isFormModalOpen = true;
+    this.titleError.set('');
+    this.formServerError.set('');
+    this.isFormModalOpen.set(true);
+    this.cdr.markForCheck();
   }
 
   closeFormModal(): void {
-    this.isFormModalOpen = false;
+    this.isFormModalOpen.set(false);
     this.editingTicketId = null;
+    this.cdr.markForCheck();
   }
 
   validateTitle(): void {
     const trimmed = (this.formTitle || '').trim();
     if (!trimmed || trimmed.length < 3 || trimmed.length > 100) {
-      this.titleError = 'Title must be between 3 and 100 characters';
+      this.titleError.set('Title must be between 3 and 100 characters');
     } else {
-      this.titleError = '';
+      this.titleError.set('');
     }
+    this.cdr.markForCheck();
   }
 
   onSaveTicket(): void {
     this.validateTitle();
-    if (this.titleError) {
+    if (this.titleError()) {
       return;
     }
 
-    this.isSubmitting = true;
-    this.formServerError = '';
+    this.isSubmitting.set(true);
+    this.formServerError.set('');
+    this.cdr.markForCheck();
 
     const payload = {
       title: this.formTitle.trim(),
@@ -673,30 +682,36 @@ export class TicketListComponent implements OnInit {
     if (this.editingTicketId) {
       this.ticketService.updateTicket(this.editingTicketId, payload).subscribe({
         next: (updated) => {
-          this.isSubmitting = false;
+          this.isSubmitting.set(false);
           this.closeFormModal();
-          const index = this.tickets.findIndex((t) => t._id === updated._id);
+          const current = [...this.tickets()];
+          const index = current.findIndex((t) => t._id === updated._id);
           if (index !== -1) {
-            this.tickets[index] = updated;
+            current[index] = updated;
+            this.tickets.set(current);
           } else {
             this.loadTickets();
           }
+          this.cdr.markForCheck();
         },
         error: (err) => {
-          this.isSubmitting = false;
-          this.formServerError = err.error?.message || 'Failed to update ticket';
+          this.isSubmitting.set(false);
+          this.formServerError.set(err.error?.message || 'Failed to update ticket');
+          this.cdr.markForCheck();
         },
       });
     } else {
       this.ticketService.createTicket(payload).subscribe({
         next: (created) => {
-          this.isSubmitting = false;
+          this.isSubmitting.set(false);
           this.closeFormModal();
-          this.tickets.unshift(created);
+          this.tickets.set([created, ...this.tickets()]);
+          this.cdr.markForCheck();
         },
         error: (err) => {
-          this.isSubmitting = false;
-          this.formServerError = err.error?.message || 'Failed to create ticket';
+          this.isSubmitting.set(false);
+          this.formServerError.set(err.error?.message || 'Failed to create ticket');
+          this.cdr.markForCheck();
         },
       });
     }
@@ -705,12 +720,14 @@ export class TicketListComponent implements OnInit {
   // Delete Confirmation Modal Actions
   openDeleteModal(ticket: Ticket): void {
     this.deletingTicket = ticket;
-    this.isConfirmModalOpen = true;
+    this.isConfirmModalOpen.set(true);
+    this.cdr.markForCheck();
   }
 
   closeDeleteModal(): void {
-    this.isConfirmModalOpen = false;
+    this.isConfirmModalOpen.set(false);
     this.deletingTicket = null;
+    this.cdr.markForCheck();
   }
 
   onConfirmDelete(): void {
@@ -719,11 +736,13 @@ export class TicketListComponent implements OnInit {
     const id = this.deletingTicket._id;
     this.ticketService.deleteTicket(id).subscribe({
       next: () => {
-        this.tickets = this.tickets.filter((t) => t._id !== id);
+        this.tickets.set(this.tickets().filter((t) => t._id !== id));
         this.closeDeleteModal();
+        this.cdr.markForCheck();
       },
       error: () => {
         this.closeDeleteModal();
+        this.cdr.markForCheck();
       },
     });
   }
