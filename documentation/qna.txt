@@ -1,0 +1,369 @@
+qna 
+
+QUESTIONS = For the Full-Stack Engineer
+{How exactly does /api/test/reset get enabled, and is it safe with parallel workers?
+The prompt says it exists only when NODE_ENV=test, but the webServer command in playwright.config.ts doesn't set that variable. Also, if beforeEach wipes the DB while several workers run at once, tests will delete each other's data. Should we run with workers: 1, or can reset be scoped per user or per test?
+After a reset, does the seeded user's login and token still work?
+auth.setup.ts logs in once and saves storageState. If reset wipes and re-creates users with new _ids, the saved JWT may point at a user that no longer exists, and every test would fail with 401. Can seeding use fixed IDs and credentials, and where is the token stored (localStorage or cookie)?
+What is the data-testid naming convention, and does it cover everything I need to assert on?
+I need IDs for the inline validation error, login error, status filter, each ticket row (ideally with the ticket ID), edit and delete buttons, and the confirm dialog. Is the delete confirm a native window.confirm or a custom modal? That decides whether I use a dialog handler or click a button.
+What are the validation rules and error contract, on both client and server?
+I need to know the max lengths, required fields, and allowed priority and status values. I also need the API error response shape and status codes (400 vs 422, 401 vs 403). This lets me test validation at both the UI level (test 4) and the API level (test 9), and confirm the server rejects bad input even if the UI is bypassed.
+Is the list deterministic and does the UI signal when it has finished loading?
+Is there a default sort order, pagination, or a loading spinner? Without a stable order and a clear "loaded" signal, tests will rely on arbitrary waits. Also, does Express have an SPA fallback so that opening /tickets directly serves index.html? Test 8 depends on that redirecting to /login.
+For the CI/CD Engineer
+How do we guarantee Mongo is ready before Playwright starts the server?
+The mongo:7 service container has no health check configured. Can we add --health-cmd options, and confirm MONGO_URI, JWT_SECRET, and NODE_ENV=test reach the process that webServer spawns?
+Are dependencies installed for all three packages?
+The workflow runs npm ci once at the root, but the app uses client/ and server/ with --prefix commands. Is there a root workspace setup? If not, we need npm ci in each folder or the build and server start will fail in CI.
+What runs on a PR versus on main, and which check is required for merging?
+I suggest @smoke only on PRs and the full suite on main or nightly. Which exact job name goes into branch protection? If we add multiple jobs or a matrix, the required check name has to stay stable.
+How will the report be published to GitHub Pages without overwriting good results?
+With if: always(), a failed PR run could replace the report from main. Should Pages deploy only from main, with PR runs relying on artifacts and a step summary? What about permissions for PRs from forks?
+What is our policy for retries, timeouts, and version pinning?
+retries: 1 in CI can hide flaky tests. Should we track flaky tests from the JUnit report and fail on a threshold? Also, should we pin the Playwright version and Docker image tags, and who checks for newer major versions of the v4 actions? }
+
+{1. Environment & Secrets Strategy
+How do we want to handle environment-specific configuration (especially MONGO_URI, JWT_SECRET, and any future secrets) across local development, CI (GitHub Actions service container), and any future staging/production deployments?
+
+Should we rely solely on GitHub Secrets + env vars injected at job level, or do we need a more structured approach (e.g., .env files with dotenv, separate test DB seeding logic, or short-lived tokens)?
+2. Test Isolation & Reset Behavior
+The /api/test/reset endpoint (NODE_ENV=test only) is critical for independent Playwright runs.
+
+Can we guarantee this endpoint is never exposed or callable outside pure test environments?
+What is the exact seeding strategy (fixed seed data vs. dynamic), and how do we ensure it remains deterministic and fast enough for both local npx playwright test and the CI matrix (including future Firefox/WebKit shards)?
+
+3. Build & Artifact Contract Between Client and Server
+In production mode the Express server serves the built Angular dist/.
+
+What is the exact build command sequence and output path we must use in CI (npm run build --prefix client → where does it land relative to the server)?
+Do we need any additional steps (e.g., copying assets, setting NODE_ENV=production, or base-href configuration) so that the single-process npm start --prefix server always serves a correct, cache-busted frontend in both local and CI runs?
+
+4. Failure Artifacts, Reporting & Branch Protection Expectations
+We currently upload the Playwright HTML report + JUnit XML + traces/screenshots/videos.
+
+Which of these must be retained and for how long?
+Do you want the HTML report automatically published to GitHub Pages on every run (including failures), and should a PR comment with the report link be required?
+What is the minimum set of checks that must be required status checks for branch protection on main (e.g., just the e2e job, or also a parallel lint/unit job)?
+
+5. Scalability & Future CI Matrix Decisions
+Looking ahead to the stretch goals (Firefox + WebKit, sharding, visual regression with toHaveScreenshot, parallel lint/unit job):
+
+What is the maximum acceptable CI duration for a PR (target wall-clock time)?
+Should we introduce a matrix strategy early, and if so, which browsers/OS combinations are non-negotiable vs. nice-to-have?
+Any strong preference on whether visual regression baselines should live in the repo or be managed externally?}
+
+{How should we handle caching across client/ and server/?
+The pipeline runs npm ci at the root and builds client/ separately. Are we using root npm workspaces so that actions/setup-node caches all dependencies effectively, or do we need dedicated cache actions for subdirectories?   What concurrency and cancellation rules should we enforce for PRs?Because E2E pipelines with Playwright and MongoDB containers consume substantial runner minutes, should we add concurrency: { group: ..., cancel-in-progress: true } to immediately terminate stale runs on new commits?How do we handle multi-run report collision on GitHub Pages?
+The plan publishes HTML reports to GitHub Pages. If multiple PRs run concurrently, will deploys overwrite each other, or should we structure directories by PR/run ID (or limit Pages deployment strictly to main)?   How are secrets and environment variables segregated between local runs and CI?
+Currently, JWT_SECRET and MONGO_URI are hardcoded in plain text inside the workflow file. Should these migrate to GitHub Repository Secrets, and what dummy fallback values should Express use when running outside CI?   How should we implement PR test-summary feedback?
+We export junit.xml. Do you prefer an inline action that writes directly to $GITHUB_STEP_SUMMARY, a dedicated check annotation action, or a bot comment posting the summary and Pages link directly to the PR?   Top 5 Questions for the QA / Test-Automation EngineerHow will tests avoid race conditions if Playwright runs workers in parallel?
+Playwright runs tests across multiple workers by default, but every test calls /api/test/reset against a single shared MongoDB container. Should we disable parallelism (workers: 1), isolate databases per worker using dynamic database names, or execute state wipes at the fixture level?   What exact default seed data must /api/test/reset provision?
+To keep tests deterministic, what baseline records (e.g., standard test user credentials, predefined ticket statuses, initial ticket list) does the reset endpoint need to seed on every wipe?   What is the standard naming convention for data-testid attributes?
+To avoid refactoring selectors later, what exact schema should the frontend follow (e.g., kebab-case ticket-status-select, hierarchical ticket-form:submit-btn, or action-based names)?   How do you want to handle auth state invalidation during the test lifecycle?
+The suite uses a global storageState generated during setup. If a test calls /api/test/reset and purges the users collection, the stored JWT may point to a deleted user ID unless the reset endpoint re-inserts that exact user ID. How should we sync the seed user with the cached auth state?   Which specific tests belong in the @smoke tier versus the full regression suite?
+We have an 8–10 test target with 2–3 smoke tests intended for fast PR checks. Which flows do you consider mission-critical for @smoke (e.g., auth check, single ticket create/verify), and when should the remaining tests run?   }
+ 
+
+ANSWERS 
+
+[To the CI/CD Engineer
+
+1. Environment and secrets
+
+Keep it simple:
+
+Commit a .env.example and gitignore .env. The server loads dotenv only for local development.
+In CI, set env vars at job level. JWT_SECRET: ci-only-secret is a throwaway value that protects nothing, so it doesn't need to be a GitHub Secret.
+Real secrets (staging or production Mongo, real JWT key) belong in GitHub Environments, and no test job should be able to read them.
+Seed credentials are fixtures, not secrets. They live in one constants file under e2e/.
+NODE_ENV=test must be set in the webServer block. The plan's config doesn't set it, so /api/test/reset wouldn't exist:
+ts
+webServer: {
+  command: 'npm start --prefix server',
+  url: 'http://localhost:3000/api/health',
+  reuseExistingServer: !process.env.CI,
+  env: { NODE_ENV: 'test', MONGO_URI: process.env.MONGO_URI!, JWT_SECRET: process.env.JWT_SECRET! },
+},
+
+Locally, reuseExistingServer can silently attach to a dev server that isn't in test mode. Reset would then 404, so I'll make the fixture fail with a clear message.
+
+2. Reset safety and seeding
+
+Never exposed: the route is mounted only when NODE_ENV === 'test', so it returns 404 otherwise rather than a guarded 403. A second guard refuses to run unless the DB name ends in _test. I'll add a supertest check that a production-mode app returns 404 on that route.
+Seeding: fixed and deterministic (exact data is in the full-stack answer 2). It uses deleteMany then insertMany, with a precomputed bcrypt hash or low cost factor, so reset takes well under 200 ms.
+Parallelism and shards: I'm running workers: 1 for now. Each CI shard or browser job gets its own Mongo service container, so sharding doesn't create conflicts.
+
+3. Build and artifact contract
+
+The order is: install deps in each package, npm run build --prefix client, install Playwright, run tests.
+Angular's production build normally lands in client/dist/<project>/browser. The full-stack engineer should confirm the exact path and make it configurable (CLIENT_DIST).
+Static serving must not depend on NODE_ENV=production, because the tests run with NODE_ENV=test.
+I need an SPA fallback to index.html for non-/api routes, base href /, and hashed asset filenames (Angular's production default). index.html should be served with no-cache.
+The server should fail fast at startup if dist/index.html is missing. /api/health should return 200 only once Mongo is connected, since Playwright uses it as the readiness probe.
+
+4. Reports, retention and branch protection
+
+Retention: the HTML report, traces, screenshots, video and JUnit XML are all uploaded if: always() with 14-day retention. That's fine, and the JUnit file could go to 30 days.
+Pages: deploy only from main (failures included), so a broken PR can't overwrite the reference report. PR runs use artifacts plus $GITHUB_STEP_SUMMARY. Fork PRs get no Pages deploy or comment, since they lack write permission.
+PR comment: nice-to-have, not required.
+Required checks: only e2e for now. Add lint and unit as required once they exist and are stable. If we add a matrix later, matrix names become e2e (chromium), so add one stable aggregate job (e.g. e2e-gate) and require that instead.
+
+5. Scalability
+
+Duration: the target is under 10 minutes for the whole PR, with e2e under 5.
+Matrix: not early. Chromium on ubuntu-latest is the only non-negotiable. Firefox and WebKit are nice-to-have, run on main or nightly (not PR-blocking) with fail-fast: false. macOS and Windows runners add little for a web app.
+Sharding: pointless at about 10 tests, so revisit it if one browser run exceeds about 5 minutes.
+Visual baselines: commit them to the repo, generated only on the CI Linux image, because font rendering differs across OSes. Keep it to 1–3 screenshots (login, seeded list), mask dates, and use fixed seed timestamps. No external service is needed.
+To the Full-Stack Engineer
+
+1. Parallel workers and race conditions
+
+Set workers: 1 and fullyParallel: false. One shared DB with a global wipe in beforeEach can't run in parallel safely, and 10 tests will finish in about a minute anyway. Per-worker DBs would need a server instance per worker, which isn't worth it yet. Please keep the DB name env-configurable so that path stays open. I'll implement the wipe as an auto fixture in e2e/fixtures.ts instead of repeating beforeEach, so every test gets it. Reset must respond only after seeding completes and must be idempotent.
+
+2. Seed data
+
+Entity	Fixed values
+User 1	qa.user@quicktix.test / Passw0rd!test, fixed _id
+User 2	other.user@quicktix.test, fixed _id, owns one extra ticket
+Tickets (user 1)	2 × Open, 1 × In Progress, 1 × Resolved, mixed priorities, fixed _ids and createdAt, unique titles
+
+Two Open tickets make the filter test meaningful. Fixed timestamps keep the sort order deterministic. The reset response should return the seeded IDs. Please confirm the status enum and priority values, and whether users see only their own tickets, since that decides whether User 2's ticket must be hidden.
+
+3. data-testid convention
+
+Use flat kebab-case, <area>-<element>, with no dynamic values in the name. Repeated elements share one testid and I scope them by row (getByTestId('ticket-row').filter({ hasText: title })).
+
+Area	IDs
+Login	login-email, login-password, login-submit, login-error
+List	ticket-list, ticket-row, ticket-status, ticket-edit, ticket-delete, status-filter, ticket-empty, list-loading
+Form	ticket-form, ticket-title-input, ticket-description-input, ticket-priority-select, ticket-status-select, ticket-submit, ticket-title-error
+Confirm	confirm-dialog, confirm-accept, confirm-cancel
+
+Please use native <select> elements, add role="alert" on error messages, and use a custom confirm modal (not window.confirm). If you do use native confirm, tell me and I'll use a dialog handler.
+
+4. Auth state after reset
+
+Fixed user IDs and credentials mean the saved JWT stays valid after every wipe. In return I need:
+
+a constant JWT_SECRET for the whole run
+token expiry longer than a test run (24h is fine)
+the token stored in localStorage or a cookie, not sessionStorage, which Playwright's storageState does not save
+
+Tell me which one you use. The fixture will also assert that reset returns the expected user ID, so drift shows up as a clear failure instead of mysterious 401s. Login-failure and redirect tests will run logged out via an empty storageState.
+
+5. @smoke tier
+
+Smoke covers create-ticket (#3), unauthenticated redirect (#8) and API 401 (#9). Login success is already exercised by the setup project, which every run depends on. Together they touch auth, UI, API and DB in under 30 seconds. While the full suite stays under about 5 minutes, I'd run everything on every PR and on main. The tag becomes the PR gate only when the suite outgrows that, with full runs on main and nightly cross-browser. This replaces my earlier suggestion of smoke-only PRs, which isn't worth the split at 10 tests.
+
+Confirmations I need before writing tests
+Status and priority enums, and whether the list is scoped per owner (full-stack).
+Token storage location and confirm modal type (full-stack).
+Exact dist path and SPA fallback (full-stack, so CI can rely on it).
+Stable e2e job name for branch protection (CI/CD).]
+
+[1. Environment & Secrets Strategy + Mongo Readiness
+
+Secrets: Move JWT_SECRET and any non-public values to GitHub Repository Secrets. In the workflow we will reference them as ${{ secrets.JWT_SECRET }}.
+Local / non-CI fallback: Express will read from process.env with sensible test defaults (JWT_SECRET=local-dev-secret, MONGO_URI=mongodb://localhost:27017/quicktix_test) so developers never need the real CI secret.
+NODE_ENV=test will be explicitly set on the job and passed through to the webServer process so /api/test/reset is available only in CI/test runs.
+
+Mongo readiness: We will add a proper health check to the mongo:7 service container:
+
+YAMLservices:
+  mongo:
+    image: mongo:7
+    ports: ['27017:27017']
+    options: >-
+      --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+      --health-interval 10s
+      --health-timeout 5s
+      --health-retries 5
+      --health-start-period 20s
+Playwright’s webServer will wait on http://localhost:3000/api/health (which itself depends on a live Mongo connection), giving us a double gate.
+2. Dependencies & Caching (addresses both engineers)
+
+There is no root workspace today. We will keep the current layout but make CI explicit and cache-friendly:
+actions/setup-node with cache: 'npm' at root.
+Separate npm ci (or npm ci --prefix client / npm ci --prefix server) after the root install if package-lock files live in the sub-folders.
+Optional future improvement: convert to npm workspaces so a single npm ci + single cache key covers everything. Until then we will use dedicated cache actions for client/node_modules and server/node_modules if the single root cache proves insufficient.
+
+
+3. What runs on PR vs main + Required Check + Concurrency
+
+PR runs: @smoke tagged tests only (fast feedback).
+main / scheduled: full suite.
+Required status check for branch protection: the single job name e2e (stable even if we later introduce a matrix or parallel lint job).
+Concurrency rule (Full Stack request):
+
+YAMLconcurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+This kills stale PR runs immediately when a new commit is pushed, saving runner minutes.
+4. Report Publishing & Multi-run Collision
+
+GitHub Pages deploys only from main (and only on success or via a dedicated “publish-report” job that runs after the e2e job on main).
+PR runs rely exclusively on:
+Artifacts (HTML report + traces + JUnit) – retention 14 days.
+$GITHUB_STEP_SUMMARY written by a lightweight action that parses the JUnit XML.
+Optional bot comment with the artifact download link (no Pages URL for PRs).
+
+This completely avoids the “failed PR overwrites good main report” problem and sidesteps fork permission issues.
+
+5. Retries, Timeouts, Version Pinning & Flaky Policy
+
+retries: 1 stays for CI only.
+We will parse the JUnit report and fail the job if the same test fails on retry (simple flaky detection). A later enhancement can raise a threshold or create a GitHub issue automatically.
+Pinning:
+Playwright version locked in package.json / package-lock.json.
+Docker image mongo:7 (or a specific digest once we stabilise).
+GitHub Actions use major-version tags (@v4) but we will review newer majors quarterly; the CI/CD engineer owns that check.
+
+Timeouts: Playwright default + explicit timeout / expect.timeout values will be set conservatively; any test that needs >30 s will be marked and reviewed.
+
+Additional clarifications that close the remaining open points
+
+Build/artifact contract: Client builds to the path the server expects (documented in README). CI runs npm run build --prefix client then starts the server; the health endpoint confirms both backend and static files are live.
+PR feedback: Prefer writing a clean table to $GITHUB_STEP_SUMMARY (zero extra permissions) + optional lightweight comment bot that posts the artifact link. No heavy third-party annotation action required for now.
+Test isolation: /api/test/reset remains gated behind NODE_ENV=test. QA owns keeping the seed data deterministic and fast.]
+
+[Answers to the QA / Test-Automation Engineer
+1. Enabling /api/test/reset & Parallel Worker Safety
+Enabling the endpoint: Set NODE_ENV=test explicitly inside the server start command. Update playwright.config.ts:
+
+TypeScript
+webServer: {
+  command: 'NODE_ENV=test npm start --prefix server',
+  url: 'http://localhost:3000/api/health',
+  reuseExistingServer: !process.env.CI,
+}
+The server guards this route with:
+
+TypeScript
+if (process.env.NODE_ENV === 'test') {
+  app.post('/api/test/reset', handleTestReset);
+}
+Parallelism: Run with workers: 1 in playwright.config.ts for this phase. Because the database is a single shared MongoDB instance wiped before each test via beforeEach, executing tests concurrently causes cross-test race conditions. Keep worker concurrency at 1 until worker-scoped databases (e.g., dynamic database names per worker via test.info().parallelIndex) are introduced.
+
+2. Auth State, Seeded User, and Storage State Persistence
+Fixed Seed IDs & Credentials: Yes. Seeding uses fixed MongoDB ObjectId values and static test credentials:
+
+User ID: 000000000000000000000001
+
+Email: test@example.com
+
+Password: password123
+
+Role: user
+
+/api/test/reset wipes collections via deleteMany({}) and upserts this exact user document with that fixed _id. Because the _id and the secret key never change, the JWT token generated during auth.setup.ts remains valid across all subsequent resets.
+
+Token Storage: The JWT is stored in localStorage under the key token. Angular reads localStorage.getItem('token') inside an HTTP interceptor to attach Authorization: Bearer <token>. Playwright captures this via storageState automatically.
+
+3. data-testid Schema & UI Interactions
+Naming Convention: Kebab-case with component-scoped prefixes:
+
+Login: login-email-input, login-password-input, login-submit-btn, login-error-msg
+
+Ticket List & Filter: status-filter-select, ticket-list, ticket-row-${ticketId}, ticket-row-title, ticket-row-status
+
+Create/Edit Form: ticket-form, ticket-title-input, ticket-desc-input, ticket-priority-select, ticket-status-select, ticket-submit-btn, ticket-title-error
+
+Actions: ticket-edit-btn, ticket-delete-btn
+
+Modal: confirm-dialog, confirm-dialog-confirm-btn, confirm-dialog-cancel-btn
+
+Confirm Dialog Type: It is a custom Angular modal component, not a native window.confirm. Assert on its visibility via getByTestId('confirm-dialog') and confirm the deletion by clicking getByTestId('confirm-dialog-confirm-btn').
+
+4. Validation Rules & API Error Contract
+Validation Rules:
+
+Title: Required, trimmed string, min length 3, max length 100.
+
+Description: Optional, max length 500.
+
+Priority: Required enum: ['Low', 'Medium', 'High', 'Urgent'] (Default: 'Medium').
+
+Status: Required enum: ['Open', 'In Progress', 'Resolved', 'Closed'] (Default: 'Open').
+
+API Error Contract & Status Codes:
+
+400 Bad Request: Payload validation failures (e.g., missing title, invalid enum value). Returns JSON:
+
+JSON
+{ "error": "ValidationError", "message": "Title is required and must be at least 3 characters" }
+401 Unauthorized: Missing, invalid, or expired JWT. Returns JSON:
+
+JSON
+{ "error": "Unauthorized", "message": "Valid token required" }
+404 Not Found: Ticket ID does not exist.
+
+Angular reflects inline field errors directly under the corresponding form input using data-testid="ticket-title-error" when the control is dirty/invalid or when a 400 is returned.
+
+5. List Determinism, Loading Signals & SPA Routing
+Sorting & Pagination: Deterministic descending order by creation timestamp (sort({ createdAt: -1 })). Pagination is disabled for this mini-app; all seeded/created tickets (capped well under 50 in tests) render in the DOM.
+
+Loading State: The UI displays <div data-testid="loading-spinner">Loading...</div> while the initial GET /api/tickets request is pending. It unmounts once the tickets load. Playwright tests can wait for locator('[data-testid="loading-spinner"]').toBeHidden().
+
+Express SPA Fallback: Yes. Express registers a wildcard catch-all route (app.get('*', ...)) that serves client/dist/browser/index.html for any non-API path. Opening /tickets directly loads the Angular app, where Angular's router auth guard detects no token in localStorage and executes an immediate redirect to /login.
+
+Answers to the CI/CD Engineer
+1. Environment & Secrets Strategy
+Local Development: A local .env file loaded via dotenv/config in server/src/index.ts. Fallback defaults in code are:
+
+MONGO_URI: mongodb://localhost:27017/quicktix_dev
+
+JWT_SECRET: dev-secret-do-not-use-in-prod
+
+PORT: 3000
+
+CI Environment: Injected directly into the GitHub Actions runner step via env: matching the service container (mongodb://localhost:27017/quicktix_test and ci-only-secret).
+
+Staging / Production: Production must inject real secrets through GitHub Actions Repository Secrets or a cloud secret manager (AWS SSM / GCP Secret Manager). The server fails fast on boot if NODE_ENV=production and JWT_SECRET matches the default insecure string.
+
+2. Test Isolation & Reset Behavior
+Production Guard: The /api/test/reset route is conditionally registered inside an if (process.env.NODE_ENV === 'test') block. In production, this route does not exist and returns 404 Not Found.
+
+Seeding Strategy: Static, deterministic data. The reset handler drops the tickets collection, drops the users collection, inserts one test user with fixed credentials, and inserts 3 baseline tickets (one Open, one In Progress, one Resolved). Execution completes via MongoDB memory buffers in under 15ms per reset.
+
+3. Build & Artifact Contract Between Client and Server
+Build Sequence:
+
+npm ci at root.
+
+npm run build --prefix client builds the Angular app to client/dist/browser/ (Angular 17+ default application builder structure).
+
+server/src/app.ts resolves static files using:
+
+TypeScript
+const clientDist = path.resolve(__dirname, '../../client/dist/browser');
+app.use(express.static(clientDist));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
+Base Href: Standard default <base href="/">. No asset-copy step is needed if the server references client/dist/browser directly.
+
+4. Failure Artifacts, Reporting & Branch Protection
+Artifact Retention:
+
+Playwright HTML report and traces/videos/screenshots retained for 7 days (14 days is unnecessary overhead for high-frequency PRs).
+
+GitHub Pages: Deploy HTML reports to GitHub Pages only from the main branch on push to avoid race conditions and overwrites. For PRs, upload the artifact directly and write the test pass/fail breakdown to $GITHUB_STEP_SUMMARY using the JUnit XML file.
+
+Required Branch Protection Checks:
+
+e2e job must pass.
+
+A fast, separate lint-and-typecheck job (running eslint and tsc --noEmit across client and server) must pass.
+
+5. Scalability & CI Matrix
+Target Wall-Clock Time: Under 3 minutes per PR run.
+
+Matrix Strategy:
+
+PR Validation: Chromium-only (--project=chromium), workers: 1, single run. This keeps PR feedback fast.
+
+Nightly or Post-Merge (main): Matrix execution across Chromium, Firefox, and WebKit.
+
+Visual Regression Baselines: Baselines must be committed directly into Git inside e2e/__screenshots__/[platform]/. To avoid platform-dependent font/pixel rendering discrepancies between macOS/Windows local machines and Linux runners, enforce that screenshot update commands run inside an identical Docker container or directly within GitHub Actions via workflow_dispatch.]

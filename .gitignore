@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Environment & Secrets
+.env
+.env.local
+
+# Playwright & Auth State
+.auth/
+playwright-report/
+test-results/
+results/
+
+# Build Outputs
+client/dist/
+client/.angular/
+server/dist/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
