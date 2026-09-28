@@ -61,6 +61,10 @@ app.use('/api', (_req: Request, res: Response) => {
 
 // Central error handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  if (err.type === 'entity.parse.failed' || err.status === 400 || err.statusCode === 400) {
+    res.status(400).json({ error: 'BadRequest', message: 'Malformed JSON payload' });
+    return;
+  }
   console.error('Unhandled Server Error:', err);
   res.status(500).json({ error: 'InternalServerError', message: err.message || 'An unexpected error occurred' });
 });
