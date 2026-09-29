@@ -10,16 +10,19 @@ import { AuthService } from '../../services/auth.service';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="dashboard-layout">
-      <!-- Navbar -->
+      <!-- Architectural Navbar -->
       <header class="navbar">
         <div class="nav-container">
           <div class="nav-brand">
-            <span class="brand-icon">⚡</span>
-            <span class="brand-name">QuickTix</span>
-            <span class="brand-badge">Tracker</span>
+            <svg class="brand-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <span class="brand-name">QUICKTIX</span>
+            <span class="brand-badge">CORE TRACKER</span>
           </div>
 
           <div class="nav-actions">
+            <span class="nav-user-label">qa.user@quicktix.test</span>
             <button (click)="onLogout()" class="btn btn-secondary btn-sm">
               Sign Out
             </button>
@@ -27,19 +30,19 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </header>
 
-      <!-- Main Content -->
+      <!-- Main Dashboard Stream -->
       <main class="content-container">
-        <!-- Action Header -->
+        <!-- Action & Filter Header -->
         <section class="toolbar-section">
           <div class="toolbar-left">
             <h2>Support Tickets</h2>
-            <p class="section-subtitle">Track, filter, and resolve incoming technical issues</p>
+            <p class="section-subtitle">Track, filter, and resolve technical issues with architectural precision</p>
           </div>
 
           <div class="toolbar-right">
-            <!-- Status Filter -->
+            <!-- Native Status Filter -->
             <div class="filter-wrapper">
-              <label for="status-filter-select" class="filter-label">Filter:</label>
+              <label for="status-filter-select" class="filter-label">Status Filter</label>
               <select
                 id="status-filter-select"
                 data-testid="status-filter"
@@ -55,7 +58,7 @@ import { AuthService } from '../../services/auth.service';
               </select>
             </div>
 
-            <!-- Create Button -->
+            <!-- Create Button: Squarespace-style Solid White -->
             <button
               data-testid="ticket-new"
               (click)="openCreateModal()"
@@ -66,24 +69,29 @@ import { AuthService } from '../../services/auth.service';
           </div>
         </section>
 
-        <!-- Loading Spinner -->
+        <!-- Loading State -->
         <div *ngIf="loading()" data-testid="list-loading" class="loading-state">
           <div class="spinner"></div>
-          <span>Loading tickets...</span>
+          <span>Loading ticket stream...</span>
         </div>
 
-        <!-- Empty State -->
+        <!-- Empty State (No Emoji, Monoline SVG) -->
         <div
           *ngIf="!loading() && tickets().length === 0"
           data-testid="ticket-empty"
           class="empty-card"
         >
-          <div class="empty-icon">📂</div>
+          <div class="empty-icon-wrap">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="1"/>
+              <path d="M7 8h10M7 12h6M7 16h4"/>
+            </svg>
+          </div>
           <h3>No tickets found</h3>
           <p>No tickets match the selected filter or your account has no tickets.</p>
         </div>
 
-        <!-- Ticket List Container -->
+        <!-- Ticket List Grid -->
         <div
           *ngIf="!loading() && tickets().length > 0"
           data-testid="ticket-list"
@@ -107,9 +115,9 @@ import { AuthService } from '../../services/auth.service';
                   • {{ ticket.priority }} Priority
                 </span>
               </div>
-              <div class="ticket-date">
+              <time class="ticket-date">
                 {{ ticket.createdAt | date: 'mediumDate' }}
-              </div>
+              </time>
             </div>
 
             <div class="ticket-card-body">
@@ -132,7 +140,7 @@ import { AuthService } from '../../services/auth.service';
               <button
                 data-testid="ticket-delete"
                 (click)="openDeleteModal(ticket)"
-                class="btn btn-danger btn-sm"
+                class="btn btn-danger-outline btn-sm"
               >
                 Delete
               </button>
@@ -146,7 +154,12 @@ import { AuthService } from '../../services/auth.service';
         <div class="modal-content">
           <div class="modal-header">
             <h3>{{ editingTicketId ? 'Edit Ticket' : 'Create New Ticket' }}</h3>
-            <button (click)="closeFormModal()" class="close-btn">&times;</button>
+            <button (click)="closeFormModal()" class="close-btn" aria-label="Close modal">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
 
           <form
@@ -154,7 +167,6 @@ import { AuthService } from '../../services/auth.service';
             (ngSubmit)="onSaveTicket()"
             class="modal-form"
           >
-            <!-- Title -->
             <div class="form-group">
               <label for="ticket-title-input">Title *</label>
               <input
@@ -177,7 +189,6 @@ import { AuthService } from '../../services/auth.service';
               </div>
             </div>
 
-            <!-- Description -->
             <div class="form-group">
               <label for="ticket-description-input">Description</label>
               <textarea
@@ -189,7 +200,6 @@ import { AuthService } from '../../services/auth.service';
               ></textarea>
             </div>
 
-            <!-- Priority & Status Row -->
             <div class="form-row">
               <div class="form-group">
                 <label for="ticket-priority-select">Priority</label>
@@ -224,7 +234,6 @@ import { AuthService } from '../../services/auth.service';
               </div>
             </div>
 
-            <!-- Server Error -->
             <div *ngIf="formServerError()" role="alert" class="alert-box alert-danger">
               {{ formServerError() }}
             </div>
@@ -250,7 +259,7 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
-      <!-- Custom Confirm Deletion Modal -->
+      <!-- Custom Confirm Deletion Modal (No Emoji, Monoline SVG) -->
       <div
         *ngIf="isConfirmModalOpen()"
         data-testid="confirm-dialog"
@@ -258,7 +267,13 @@ import { AuthService } from '../../services/auth.service';
       >
         <div class="modal-content confirm-modal-card">
           <div class="confirm-body">
-            <div class="warning-icon">⚠️</div>
+            <div class="warning-icon-wrap">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
             <h3>Delete Ticket?</h3>
             <p>
               Are you sure you want to delete
@@ -290,17 +305,18 @@ import { AuthService } from '../../services/auth.service';
     .dashboard-layout {
       min-height: 100vh;
       background-color: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Navbar */
     .navbar {
       background-color: var(--bg-surface);
       border-bottom: 1px solid var(--border-color);
-      padding: 0.85rem 1.5rem;
+      padding: 0.95rem 2rem;
     }
 
     .nav-container {
-      max-width: 1200px;
+      max-width: 1240px;
       margin: 0 auto;
       display: flex;
       align-items: center;
@@ -310,102 +326,123 @@ import { AuthService } from '../../services/auth.service';
     .nav-brand {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.65rem;
     }
 
-    .brand-icon {
-      font-size: 1.35rem;
+    .brand-svg {
+      color: var(--accent);
     }
 
     .brand-name {
-      font-size: 1.25rem;
+      font-size: 0.95rem;
       font-weight: 700;
-      color: #ffffff;
-      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      letter-spacing: 0.16em;
     }
 
     .brand-badge {
-      font-size: 0.72rem;
+      font-size: 0.66rem;
       font-weight: 600;
-      background: var(--accent-glow);
-      color: var(--accent-primary);
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      padding: 0.2rem 0.5rem;
+      border-radius: var(--radius-xs);
+      border: 1px solid rgba(197, 155, 109, 0.28);
+      letter-spacing: 0.08em;
     }
 
-    /* Content Area */
-    .content-container {
-      max-width: 1200px;
-      margin: 2rem auto;
-      padding: 0 1.5rem;
-    }
-
-    /* Toolbar Section */
-    .toolbar-section {
+    .nav-actions {
       display: flex;
       align-items: center;
+      gap: 1.25rem;
+    }
+
+    .nav-user-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+
+    .content-container {
+      max-width: 1240px;
+      width: 100%;
+      margin: 2.5rem auto;
+      padding: 0 2rem;
+      flex: 1;
+    }
+
+    .toolbar-section {
+      display: flex;
+      align-items: flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 1.25rem;
-      margin-bottom: 2rem;
+      gap: 1.5rem;
+      margin-bottom: 2.25rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
     }
 
     .toolbar-left h2 {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #ffffff;
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 3.2vw, 2.75rem);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--text-primary);
     }
 
     .section-subtitle {
       color: var(--text-secondary);
-      font-size: 0.9rem;
-      margin-top: 0.2rem;
+      font-size: 0.92rem;
+      margin-top: 0.35rem;
     }
 
     .toolbar-right {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 1.25rem;
     }
 
     .filter-wrapper {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.65rem;
     }
 
     .filter-label {
-      font-size: 0.85rem;
+      font-size: 0.74rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       color: var(--text-secondary);
-      font-weight: 500;
+      white-space: nowrap;
     }
 
     .native-select {
       width: auto;
-      min-width: 140px;
+      min-width: 150px;
     }
 
-    /* Ticket Grid / List */
     .ticket-grid {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.85rem;
     }
 
     .ticket-card {
       background-color: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 1.25rem 1.5rem;
+      border-radius: var(--radius-sm);
+      padding: 1.35rem 1.65rem;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
-      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+      gap: 0.85rem;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
     }
 
     .ticket-card:hover {
-      border-color: #475569;
+      border-color: var(--border-hover);
+      transform: translateY(-1px);
       box-shadow: var(--shadow-md);
     }
 
@@ -418,151 +455,86 @@ import { AuthService } from '../../services/auth.service';
     .title-group {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.85rem;
     }
 
     .ticket-date {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
+      letter-spacing: 0.03em;
     }
 
     .ticket-title {
-      font-size: 1.1rem;
+      font-size: 1.12rem;
       font-weight: 600;
-      color: #ffffff;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
       margin-bottom: 0.35rem;
     }
 
     .ticket-desc {
       font-size: 0.9rem;
       color: var(--text-secondary);
-      line-height: 1.45;
+      line-height: 1.55;
     }
 
     .ticket-card-footer {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      gap: 0.65rem;
+      gap: 0.75rem;
       border-top: 1px solid rgba(255, 255, 255, 0.05);
-      padding-top: 0.75rem;
+      padding-top: 0.85rem;
       margin-top: 0.25rem;
     }
 
-    /* States */
-    .loading-state,
-    .empty-card {
-      background-color: var(--bg-surface);
-      border: 1px dashed var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 3.5rem 2rem;
-      text-align: center;
-      color: var(--text-secondary);
-    }
-
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(99, 102, 241, 0.2);
-      border-top-color: var(--accent-primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .empty-icon {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .empty-card h3 {
-      color: #ffffff;
-      margin-bottom: 0.35rem;
-    }
-
-    /* Modal Form */
-    .modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .modal-header h3 {
-      color: #ffffff;
-      font-size: 1.15rem;
-    }
-
-    .close-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      font-size: 1.5rem;
-      cursor: pointer;
-      line-height: 1;
-    }
-
-    .close-btn:hover {
-      color: #ffffff;
-    }
-
     .modal-form {
-      padding: 1.5rem;
+      padding: 1.65rem;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 1.35rem;
     }
 
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .modal-footer {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      padding-top: 0.5rem;
-    }
-
-    /* Confirm Modal */
     .confirm-modal-card {
-      max-width: 420px;
+      max-width: 440px;
     }
 
     .confirm-body {
-      padding: 2rem 1.5rem 1.25rem;
+      padding: 2.25rem 2rem 1.5rem;
       text-align: center;
     }
 
-    .warning-icon {
-      font-size: 2.5rem;
-      margin-bottom: 0.75rem;
+    .warning-icon-wrap {
+      color: #f87171;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: center;
     }
 
     .confirm-body h3 {
-      color: #ffffff;
+      font-family: var(--font-display);
+      font-size: 1.65rem;
+      font-weight: 500;
+      color: var(--text-primary);
       margin-bottom: 0.5rem;
     }
 
     .confirm-body p {
       color: var(--text-secondary);
       font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .confirm-body strong {
+      color: var(--text-primary);
     }
 
     .confirm-footer {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.75rem;
-      padding: 1rem 1.5rem 1.5rem;
+      gap: 0.85rem;
+      padding: 1.25rem 2rem 1.75rem;
       border-top: 1px solid var(--border-color);
     }
   `],
