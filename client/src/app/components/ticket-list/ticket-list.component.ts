@@ -22,7 +22,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <div class="nav-actions">
-            <span class="nav-user-label">qa.user@quicktix.test</span>
+            <span class="nav-user-label">{{ userEmail }}</span>
             <button (click)="onLogout()" class="btn btn-secondary btn-sm">
               Sign Out
             </button>
@@ -717,6 +717,10 @@ export class TicketListComponent implements OnInit {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  get userEmail(): string {
+    return this.authService.getUserEmail() || 'qa.user@quicktix.test';
   }
 
   onLogout(): void {
