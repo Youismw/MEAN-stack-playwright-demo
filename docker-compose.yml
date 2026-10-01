@@ -1,0 +1,26 @@
+services:
+  mongo-users:
+    image: mongo:7
+    container_name: quicktix-mongo-users
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: quicktix_users_dev
+    volumes:
+      - mongo_users_data:/data/db
+
+  mongo-tickets:
+    image: mongo:7
+    container_name: quicktix-mongo-tickets
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: quicktix_tickets_dev
+    volumes:
+      - mongo_tickets_data:/data/db
+
+volumes:
+  mongo_users_data:
+  mongo_tickets_data:

@@ -75,14 +75,14 @@ Testing anti-patterns often stem from leaky database state. QuickTix eliminates 
 - **Docker**: Docker Desktop (or local MongoDB 7)
 - **mongosh**: MongoDB Shell
 
-### 1. Start MongoDB
-Launch the official MongoDB container on standard port 27017:
+### 1. Start MongoDB Containers
+Launch the two separate MongoDB containers (Users on port `27017`, Tickets on port `27018`):
 ```powershell
-docker run -d --name quicktix-mongo -p 27017:27017 mongo:7
+docker compose up -d
 ```
-Verify connectivity:
+Verify both containers are running in Docker Desktop:
 ```powershell
-mongosh --quiet --eval "db.runCommand({ ping: 1 })"
+docker ps
 ```
 
 ### 2. Install Dependencies
