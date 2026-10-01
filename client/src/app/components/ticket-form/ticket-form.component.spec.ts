@@ -22,11 +22,14 @@ describe('TicketFormComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should render all form inputs with designated testids', () => {
+  it('should render all form inputs with designated testids and description maxlength 500', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('[data-testid="ticket-form"]')).toBeTruthy();
     expect(compiled.querySelector('[data-testid="ticket-title-input"]')).toBeTruthy();
-    expect(compiled.querySelector('[data-testid="ticket-description-input"]')).toBeTruthy();
+    const descInput = compiled.querySelector('[data-testid="ticket-description-input"]');
+    expect(descInput).toBeTruthy();
+    expect(descInput?.getAttribute('maxlength')).toBe('500');
+    expect(compiled.querySelector('.char-count')?.textContent).toContain('/500');
     expect(compiled.querySelector('[data-testid="ticket-priority-select"]')).toBeTruthy();
     expect(compiled.querySelector('[data-testid="ticket-status-select"]')).toBeTruthy();
     expect(compiled.querySelector('[data-testid="ticket-submit"]')).toBeTruthy();

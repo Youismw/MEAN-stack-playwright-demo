@@ -36,7 +36,7 @@ export class TicketFormComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['isOpen'] && this.isOpen) {
+    if ((changes['isOpen'] && this.isOpen) || (changes['initialTicket'] && this.isOpen)) {
       if (this.initialTicket) {
         this.title = this.initialTicket.title;
         this.description = this.initialTicket.description || '';

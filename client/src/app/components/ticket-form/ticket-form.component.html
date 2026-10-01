@@ -38,11 +38,17 @@
       </div>
 
       <div class="form-group">
-        <label for="ticket-description-input">Description</label>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label for="ticket-description-input" style="margin-bottom: 0;">Description</label>
+          <span class="char-count" style="font-size: 0.75rem; color: #94a3b8;">
+            {{ (description || '').length }}/500
+          </span>
+        </div>
         <textarea
           id="ticket-description-input"
           data-testid="ticket-description-input"
           [(ngModel)]="description"
+          maxlength="500"
           name="description"
           placeholder="Provide additional details, reproduction steps, or context (max 500 characters)"
         ></textarea>

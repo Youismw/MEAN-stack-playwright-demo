@@ -1,6 +1,9 @@
-import { Component, OnInit, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, signal, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject, of } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TicketService, Ticket } from '../../services/ticket.service';
 import { AuthService } from '../../services/auth.service';
 import { HeaderComponent } from '../header/header.component';
@@ -22,6 +25,9 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.compone
   styleUrl: './ticket-list.component.css',
 })
 export class TicketListComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
+  private filterSubject = new Subject<string | undefined>();
+
   tickets = signal<Ticket[]>([]);
   loading = signal(true);
   selectedStatus = 'All';
@@ -43,25 +49,33 @@ export class TicketListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.filterSubject
+      .pipe(
+        switchMap((filterStatus) => {
+          this.loading.set(true);
+          this.cdr.markForCheck();
+          return this.ticketService.getTickets(filterStatus).pipe(
+            catchError(() => {
+              this.loading.set(false);
+              this.cdr.markForCheck();
+              return of([]);
+            })
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((data) => {
+        this.tickets.set(data);
+        this.loading.set(false);
+        this.cdr.markForCheck();
+      });
+
     this.loadTickets();
   }
 
   loadTickets(): void {
-    this.loading.set(true);
-    this.cdr.markForCheck();
-
     const filterStatus = this.selectedStatus === 'All' ? undefined : this.selectedStatus;
-    this.ticketService.getTickets(filterStatus).subscribe({
-      next: (data) => {
-        this.tickets.set(data);
-        this.loading.set(false);
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.loading.set(false);
-        this.cdr.markForCheck();
-      },
-    });
+    this.filterSubject.next(filterStatus);
   }
 
   onFilterChange(): void {
@@ -97,40 +111,55 @@ export class TicketListComponent implements OnInit {
 
     if (this.editingTicket) {
       const ticketId = this.editingTicket._id;
-      this.ticketService.updateTicket(ticketId, formData).subscribe({
-        next: (updated) => {
-          this.isSubmitting.set(false);
-          this.closeFormModal();
-          const current = [...this.tickets()];
-          const index = current.findIndex((t) => t._id === updated._id);
-          if (index !== -1) {
-            current[index] = updated;
-            this.tickets.set(current);
-          } else {
-            this.loadTickets();
-          }
-          this.cdr.markForCheck();
-        },
-        error: (err) => {
-          this.isSubmitting.set(false);
-          this.formServerError.set(err.error?.message || 'Failed to update ticket');
-          this.cdr.markForCheck();
-        },
-      });
+      this.ticketService
+        .updateTicket(ticketId, formData)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (updated) => {
+            this.isSubmitting.set(false);
+            this.closeFormModal();
+            const current = [...this.tickets()];
+            const index = current.findIndex((t) => t._id === updated._id);
+            if (index !== -1) {
+              if (this.selectedStatus === 'All' || this.selectedStatus === updated.status) {
+                current[index] = updated;
+                this.tickets.set(current);
+              } else {
+                current.splice(index, 1);
+                this.tickets.set(current);
+              }
+            } else {
+              if (this.selectedStatus === 'All' || this.selectedStatus === updated.status) {
+                this.loadTickets();
+              }
+            }
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.isSubmitting.set(false);
+            this.formServerError.set(err.error?.message || 'Failed to update ticket');
+            this.cdr.markForCheck();
+          },
+        });
     } else {
-      this.ticketService.createTicket(formData).subscribe({
-        next: (created) => {
-          this.isSubmitting.set(false);
-          this.closeFormModal();
-          this.tickets.set([created, ...this.tickets()]);
-          this.cdr.markForCheck();
-        },
-        error: (err) => {
-          this.isSubmitting.set(false);
-          this.formServerError.set(err.error?.message || 'Failed to create ticket');
-          this.cdr.markForCheck();
-        },
-      });
+      this.ticketService
+        .createTicket(formData)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (created) => {
+            this.isSubmitting.set(false);
+            this.closeFormModal();
+            if (this.selectedStatus === 'All' || this.selectedStatus === created.status) {
+              this.tickets.set([created, ...this.tickets()]);
+            }
+            this.cdr.markForCheck();
+          },
+          error: (err) => {
+            this.isSubmitting.set(false);
+            this.formServerError.set(err.error?.message || 'Failed to create ticket');
+            this.cdr.markForCheck();
+          },
+        });
     }
   }
 
@@ -151,17 +180,20 @@ export class TicketListComponent implements OnInit {
     if (!this.deletingTicket) return;
 
     const id = this.deletingTicket._id;
-    this.ticketService.deleteTicket(id).subscribe({
-      next: () => {
-        this.tickets.set(this.tickets().filter((t) => t._id !== id));
-        this.closeDeleteModal();
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.closeDeleteModal();
-        this.cdr.markForCheck();
-      },
-    });
+    this.ticketService
+      .deleteTicket(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.tickets.set(this.tickets().filter((t) => t._id !== id));
+          this.closeDeleteModal();
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.closeDeleteModal();
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   get userEmail(): string {

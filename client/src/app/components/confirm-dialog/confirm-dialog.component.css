@@ -61,10 +61,14 @@
   font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .confirm-body strong {
   color: var(--text-primary);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .confirm-footer {

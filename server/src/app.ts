@@ -13,7 +13,41 @@ const __dirname = path.dirname(__filename);
 
 export const app = express();
 
-app.use(cors());
+// Secure CORS configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+  : [
+      'http://localhost:3000',
+      'http://localhost:4200',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:4200',
+    ];
+
+const isTestEnv = (process.env.NODE_ENV || '').trim().toLowerCase() === 'test';
+
+// Standard Security Headers
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like same-origin, curl, or in automated tests)
+      if (!origin || allowedOrigins.includes(origin) || isTestEnv) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // API Routes
@@ -22,7 +56,7 @@ app.use('/api/tickets', ticketRouter);
 app.use('/api', healthRouter);
 
 // Test Reset endpoint: strictly registered only when NODE_ENV === 'test'
-if (process.env.NODE_ENV === 'test') {
+if (isTestEnv) {
   app.use('/api/test', testRouter);
 }
 
@@ -66,5 +100,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
   console.error('Unhandled Server Error:', err);
-  res.status(500).json({ error: 'InternalServerError', message: err.message || 'An unexpected error occurred' });
+  const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
+  const safeMessage = isProduction ? 'An unexpected error occurred' : (err.message || 'An unexpected error occurred');
+  res.status(500).json({ error: 'InternalServerError', message: safeMessage });
 });

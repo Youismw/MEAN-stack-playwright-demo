@@ -15,14 +15,14 @@ if (fs.existsSync(rootEnv)) {
   dotenv.config();
 }
 
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const NODE_ENV = (process.env.NODE_ENV || 'development').trim().toLowerCase();
 
 /**
  * Resolves separate database URIs for user and ticket (backend) services.
  * Follows architectural best practices to ensure separate domains do not share databases.
  */
 export function resolveDatabaseUris(): { usersUri: string; ticketsUri: string } {
-  const currentEnv = process.env.NODE_ENV || 'development';
+  const currentEnv = (process.env.NODE_ENV || 'development').trim().toLowerCase();
   const isTest = currentEnv === 'test';
   const defaultBaseHost = 'mongodb://localhost:27017';
 

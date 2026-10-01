@@ -8,7 +8,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = authService.getToken();
 
   let modifiedReq = req;
-  if (token && req.url.startsWith('/api')) {
+  const isApiRequest = req.url.startsWith('/api') || /^(https?:)?\/\/[^/]+\/api/.test(req.url);
+  if (token && isApiRequest) {
     modifiedReq = req.clone({
       setHeaders: {
         Authorization: `Bearer ${token}`,

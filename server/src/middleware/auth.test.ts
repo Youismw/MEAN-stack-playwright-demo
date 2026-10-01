@@ -113,4 +113,77 @@ describe('Auth Middleware Unit Tests', () => {
     assert.equal(req.user.id, payload.id);
     assert.equal(req.user.email, payload.email);
   });
+
+  it('should trim and accept Bearer token with extra spaces', () => {
+    const payload = { id: '000000000000000000000001', email: 'qa.user@quicktix.test' };
+    const validToken = jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn: '1h' });
+
+    const req: any = { headers: { authorization: `Bearer   ${validToken}   ` } };
+    const res: any = {};
+    let nextCalled = false;
+    const next = () => {
+      nextCalled = true;
+    };
+
+    authenticateToken(req, res, next);
+    assert.equal(nextCalled, true);
+  });
+
+  it('should reject tokens with unauthorized algorithms (e.g. none)', () => {
+    // Construct unsigned/none algorithm token
+    const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ id: '1', email: 'none@test.com' })).toString('base64url');
+    const noneToken = `${header}.${payload}.`;
+
+    let statusCode = 0;
+    const req: any = { headers: { authorization: `Bearer ${noneToken}` } };
+    const res: any = {
+      status(code: number) {
+        statusCode = code;
+        return this;
+      },
+      json() {
+        return this;
+      },
+    };
+    let nextCalled = false;
+    const next = () => {
+      nextCalled = true;
+    };
+
+    authenticateToken(req, res, next);
+    assert.equal(statusCode, 401);
+    assert.equal(nextCalled, false);
+  });
+
+  it('should reject tokens with malformed or non-ObjectId user id with 401', () => {
+    const invalidIdPayload = { id: 'not-a-valid-object-id', email: 'test@quicktix.test' };
+    const token = jwt.sign(invalidIdPayload, secret, { algorithm: 'HS256', expiresIn: '1h' });
+
+    let statusCode = 0;
+    let jsonBody: any = null;
+    const req: any = { headers: { authorization: `Bearer ${token}` } };
+    const res: any = {
+      status(code: number) {
+        statusCode = code;
+        return this;
+      },
+      json(body: any) {
+        jsonBody = body;
+        return this;
+      },
+    };
+    let nextCalled = false;
+    const next = () => {
+      nextCalled = true;
+    };
+
+    authenticateToken(req, res, next);
+    assert.equal(statusCode, 401);
+    assert.deepEqual(jsonBody, {
+      error: 'Unauthorized',
+      message: 'Valid token required',
+    });
+    assert.equal(nextCalled, false);
+  });
 });

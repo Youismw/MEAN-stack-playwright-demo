@@ -70,6 +70,15 @@ describe('Ticket Routes Unit Tests', () => {
     assert.equal(res.body[0].title, 'Fix header layout bug');
   });
 
+  it('should return 400 when invalid status filter query is provided', async () => {
+    const res = await request(app)
+      .get('/api/tickets?status=invalid_status_value')
+      .set('Authorization', `Bearer ${tokenUser1}`);
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'ValidationError');
+  });
+
   it('should validate title length on creation (< 3 characters)', async () => {
     const res = await request(app)
       .post('/api/tickets')

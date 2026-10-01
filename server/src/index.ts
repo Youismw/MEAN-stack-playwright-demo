@@ -22,8 +22,9 @@ if (fs.existsSync(rootEnv)) {
   dotenv.config();
 }
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const NODE_ENV = process.env.NODE_ENV || 'development';
+const parsedPort = Number(process.env.PORT);
+const PORT = !isNaN(parsedPort) && parsedPort > 0 ? parsedPort : 3000;
+const NODE_ENV = (process.env.NODE_ENV || 'development').trim().toLowerCase();
 
 // Production safety validations
 if (NODE_ENV === 'production') {

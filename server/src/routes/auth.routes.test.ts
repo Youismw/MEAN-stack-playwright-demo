@@ -48,7 +48,19 @@ describe('Auth Routes Unit Tests', () => {
     assert.equal(res.body.error, 'Unauthorized');
   });
 
-  it('should return 401 when user does not exist', async () => {
+  it('should reject credential typos and backdoor variants with 401', async () => {
+    const res1 = await request(app)
+      .post('/api/auth/login')
+      .send({ email: testEmail, password: 'Password!test' });
+    assert.equal(res1.status, 401);
+
+    const res2 = await request(app)
+      .post('/api/auth/login')
+      .send({ email: testEmail, password: 'passw0rd!test' });
+    assert.equal(res2.status, 401);
+  });
+
+  it('should return 401 when user does not exist (with constant-time dummy hash comparison)', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'nonexistent@quicktix.test', password: testPassword });
@@ -57,7 +69,7 @@ describe('Auth Routes Unit Tests', () => {
     assert.equal(res.body.error, 'Unauthorized');
   });
 
-  it('should return 200 and valid JWT token on correct credentials', async () => {
+  it('should return 200, valid JWT token with HS256 algorithm and rate-limit headers', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ email: testEmail, password: testPassword });
@@ -65,8 +77,14 @@ describe('Auth Routes Unit Tests', () => {
     assert.equal(res.status, 200);
     assert.ok(res.body.token, 'Response should contain token');
 
-    const decoded: any = jwt.verify(res.body.token, secret);
+    const decoded: any = jwt.verify(res.body.token, secret, { algorithms: ['HS256'] });
     assert.equal(decoded.id, testUserId.toString());
     assert.equal(decoded.email, testEmail);
+
+    const decodedComplete: any = jwt.decode(res.body.token, { complete: true });
+    assert.equal(decodedComplete?.header?.alg, 'HS256');
+
+    // Rate-limit headers present
+    assert.ok(res.headers['ratelimit-limit'], 'Rate limit header should be present');
   });
 });

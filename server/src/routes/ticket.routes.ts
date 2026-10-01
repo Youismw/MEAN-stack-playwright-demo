@@ -8,6 +8,7 @@ router.use(authenticateToken);
 
 const VALID_PRIORITIES: TicketPriority[] = ['Low', 'Medium', 'High', 'Urgent'];
 const VALID_STATUSES: TicketStatus[] = ['Open', 'In Progress', 'Resolved', 'Closed'];
+const MAX_TICKETS_LIMIT = 1000;
 
 function extractParamId(param: string | string[] | undefined): string {
   if (!param) return '';
@@ -20,14 +21,21 @@ router.get('/', async (req: AuthRequest, res: Response): Promise<void> => {
     const ownerId = new Types.ObjectId(req.user!.id);
     const filter: any = { owner: ownerId };
 
-    if (req.query.status && typeof req.query.status === 'string') {
+    if (req.query.status !== undefined && typeof req.query.status === 'string') {
       const statusQuery = req.query.status.trim();
-      if (VALID_STATUSES.includes(statusQuery as TicketStatus)) {
+      if (statusQuery !== '' && statusQuery !== 'All') {
+        if (!VALID_STATUSES.includes(statusQuery as TicketStatus)) {
+          res.status(400).json({
+            error: 'ValidationError',
+            message: 'Status must be Open, In Progress, Resolved, or Closed',
+          });
+          return;
+        }
         filter.status = statusQuery;
       }
     }
 
-    const tickets = await Ticket.find(filter).sort({ createdAt: -1 });
+    const tickets = await Ticket.find(filter).sort({ createdAt: -1 }).limit(MAX_TICKETS_LIMIT);
     res.status(200).json(tickets);
   } catch (err: any) {
     res.status(500).json({ error: 'ServerError', message: err.message });

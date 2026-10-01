@@ -31,7 +31,18 @@ export class AuthService {
   private readonly tokenKey = 'token';
   readonly currentUserToken = signal<string | null>(this.getToken());
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event: StorageEvent) => {
+        if (event.key === this.tokenKey) {
+          this.currentUserToken.set(event.newValue);
+          if (!event.newValue && !this.router.url.includes('/login')) {
+            this.router.navigate(['/login']);
+          }
+        }
+      });
+    }
+  }
 
   login(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', { email, password }).pipe(
@@ -64,7 +75,8 @@ export class AuthService {
   isTokenExpired(token: string): boolean {
     const payload = decodeJwtPayload(token);
     if (!payload || !payload.exp) return true;
-    return Date.now() >= payload.exp * 1000;
+    const leewaySeconds = 15;
+    return Date.now() >= (payload.exp - leewaySeconds) * 1000;
   }
 
   isAuthenticated(): boolean {

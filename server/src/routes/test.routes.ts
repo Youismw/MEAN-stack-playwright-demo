@@ -19,6 +19,9 @@ const TICKET_3_ID = new Types.ObjectId('100000000000000000000003');
 const TICKET_4_ID = new Types.ObjectId('100000000000000000000004');
 const TICKET_5_ID = new Types.ObjectId('100000000000000000000005');
 
+// In-memory mutex promise queue to serialize concurrent reset calls and prevent E11000 duplicate key collisions
+let resetLock: Promise<any> = Promise.resolve();
+
 router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
   // Safety guard: refuse to wipe unless both database names end in _test
   const userDbName = userDbConnection.name || '';
@@ -32,7 +35,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  try {
+  const executeReset = async () => {
     // 1. Wipe collections across separated databases
     await User.deleteMany({});
     await Ticket.deleteMany({});
@@ -110,11 +113,18 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
     ];
     await Ticket.insertMany(tickets);
 
-    res.status(200).json({
+    return {
       status: 'reset_complete',
       users: users.map((u) => u._id.toString()),
       tickets: tickets.map((t) => t._id.toString()),
-    });
+    };
+  };
+
+  try {
+    const currentRun = resetLock.then(executeReset, executeReset);
+    resetLock = currentRun.then(() => {}, () => {});
+    const result = await currentRun;
+    res.status(200).json(result);
   } catch (err: any) {
     res.status(500).json({ error: 'ResetError', message: err.message });
   }

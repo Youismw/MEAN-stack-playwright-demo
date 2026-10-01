@@ -128,4 +128,58 @@ describe('TicketListComponent', () => {
     component.onLogout();
     expect(authServiceSpy.logout).toHaveBeenCalled();
   });
+
+  it('should not prepend newly created ticket to tickets signal when filter does not match', () => {
+    component.selectedStatus = 'Closed';
+    const initialCount = component.tickets().length;
+
+    component.openCreateModal();
+    component.onSaveTicket({
+      title: 'Open Ticket',
+      description: 'Desc',
+      priority: 'Low',
+      status: 'Open',
+    });
+
+    expect(ticketServiceSpy.createTicket).toHaveBeenCalled();
+    expect(component.tickets().length).toBe(initialCount);
+    expect(component.isFormModalOpen()).toBe(false);
+  });
+
+  it('should remove ticket from view when status update no longer matches active filter', () => {
+    component.selectedStatus = 'Open';
+    component.tickets.set([...mockTickets]);
+    const ticketToEdit = mockTickets[0]; // status: 'Open'
+
+    component.openEditModal(ticketToEdit);
+    component.onSaveTicket({
+      title: ticketToEdit.title,
+      description: ticketToEdit.description || '',
+      priority: ticketToEdit.priority,
+      status: 'Resolved',
+    });
+
+    expect(ticketServiceSpy.updateTicket).toHaveBeenCalled();
+    const found = component.tickets().find((t) => t._id === ticketToEdit._id);
+    expect(found).toBeUndefined();
+  });
+
+  it('should keep updated ticket in view when status still matches active filter', () => {
+    component.selectedStatus = 'Open';
+    component.tickets.set([...mockTickets]);
+    const ticketToEdit = mockTickets[0]; // status: 'Open'
+
+    component.openEditModal(ticketToEdit);
+    component.onSaveTicket({
+      title: 'Updated Title',
+      description: ticketToEdit.description || '',
+      priority: 'Urgent',
+      status: 'Open',
+    });
+
+    expect(ticketServiceSpy.updateTicket).toHaveBeenCalled();
+    const updated = component.tickets().find((t) => t._id === ticketToEdit._id);
+    expect(updated).toBeDefined();
+    expect(updated?.title).toBe('Updated Title');
+  });
 });
