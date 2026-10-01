@@ -1,0 +1,80 @@
+<div class="login-page">
+  <app-header variant="login" badgeText="ARCHITECTURAL EDITION" [showUserActions]="false"></app-header>
+
+  <main class="login-stage">
+    <div class="hero-header">
+      <h1 class="hero-title">Resolution makes it real</h1>
+      <p class="hero-subtitle">Architectural issue orchestration for high-velocity engineering.</p>
+    </div>
+
+    <div class="login-card">
+      <div class="card-header">
+        <h2>Sign In</h2>
+        <p class="card-description">Access your engineering ticket stream</p>
+      </div>
+
+      <form (ngSubmit)="onSubmit()" class="login-form">
+        <div *ngIf="errorMessage()" data-testid="login-error" role="alert" class="alert-box alert-danger">
+          <svg class="alert-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input
+            id="email"
+            type="email"
+            data-testid="login-email"
+            [(ngModel)]="email"
+            name="email"
+            placeholder="qa.user@quicktix.test"
+            required
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            data-testid="login-password"
+            [(ngModel)]="password"
+            name="password"
+            placeholder="••••••••••••"
+            required
+            autocomplete="current-password"
+          />
+        </div>
+
+        <button
+          type="submit"
+          data-testid="login-submit"
+          class="btn btn-primary btn-block"
+          [disabled]="loading()"
+        >
+          {{ loading() ? 'Signing In...' : 'Sign In' }}
+        </button>
+      </form>
+
+      <footer class="login-footer">
+        <p class="demo-hint">Demo QA credentials: <code>qa.user@quicktix.test</code> / <code>Passw0rd!test</code></p>
+        <button
+          type="button"
+          (click)="fillDemoCredentials()"
+          class="btn-demo-fill"
+        >
+          <svg class="btn-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          Auto-fill Demo Credentials
+        </button>
+        <p class="demo-subhint">Note: Password has a zero <code>0</code>, not the letter <code>o</code>.</p>
+      </footer>
+    </div>
+  </main>
+</div>

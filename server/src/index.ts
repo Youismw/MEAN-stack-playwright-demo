@@ -2,8 +2,14 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import mongoose from 'mongoose';
 import { app, clientDist } from './app.js';
+import {
+  connectDatabases,
+  closeDatabases,
+  resolveDatabaseUris,
+  userDbConnection,
+  ticketDbConnection,
+} from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,8 +23,6 @@ if (fs.existsSync(rootEnv)) {
 }
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/quicktix_dev';
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Production safety validations
@@ -37,9 +41,11 @@ if (NODE_ENV === 'production') {
 
 async function startServer(): Promise<void> {
   try {
-    console.log(`Connecting to MongoDB at '${MONGO_URI}'...`);
-    await mongoose.connect(MONGO_URI);
-    console.log(`MongoDB connected successfully to database: '${mongoose.connection.name}'`);
+    const { usersUri, ticketsUri } = resolveDatabaseUris();
+    console.log(`Connecting to MongoDB Users DB at '${usersUri}'...`);
+    console.log(`Connecting to MongoDB Tickets DB at '${ticketsUri}'...`);
+    await connectDatabases();
+    console.log(`MongoDB connected successfully [Users: '${userDbConnection.name}', Tickets: '${ticketDbConnection.name}']`);
 
     const server = app.listen(PORT, () => {
       console.log(`QuickTix Server is running on http://localhost:${PORT} [NODE_ENV=${NODE_ENV}]`);
@@ -49,8 +55,8 @@ async function startServer(): Promise<void> {
     const gracefulShutdown = async (signal: string) => {
       console.log(`Received ${signal}. Shutting down gracefully...`);
       server.close(async () => {
-        await mongoose.connection.close();
-        console.log('MongoDB connection closed. Process terminated.');
+        await closeDatabases();
+        console.log('MongoDB connections closed. Process terminated.');
         process.exit(0);
       });
     };

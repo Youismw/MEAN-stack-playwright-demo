@@ -1,0 +1,50 @@
+<article
+  data-testid="ticket-row"
+  [attr.data-ticket-id]="ticket._id"
+  class="ticket-card"
+>
+  <div class="ticket-card-header">
+    <div class="title-group">
+      <span
+        data-testid="ticket-status"
+        [ngClass]="statusBadgeClass"
+      >
+        {{ ticket.status }}
+      </span>
+      <span [ngClass]="priorityBadgeClass">
+        • {{ ticket.priority }} Priority
+      </span>
+    </div>
+    <time class="ticket-date">
+      {{ ticket.createdAt | date: 'mediumDate' }}
+    </time>
+  </div>
+
+  <div class="ticket-card-body">
+    <h3 data-testid="ticket-title" class="ticket-title">
+      {{ ticket.title }}
+    </h3>
+    <p *ngIf="ticket.description" class="ticket-desc">
+      {{ ticket.description }}
+    </p>
+  </div>
+
+  <div class="ticket-card-footer">
+    <button
+      type="button"
+      data-testid="ticket-edit"
+      (click)="onEdit()"
+      class="btn btn-secondary btn-sm"
+    >
+      Edit
+    </button>
+    <button
+      type="button"
+      data-testid="ticket-delete"
+      (click)="onDelete()"
+      class="btn btn-danger-outline btn-sm"
+    >
+      Delete
+    </button>
+  </div>
+</article>

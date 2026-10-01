@@ -1,4 +1,5 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, Document, Types } from 'mongoose';
+import { ticketDbConnection } from '../db.js';
 
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
@@ -60,4 +61,4 @@ const ticketSchema = new Schema<ITicket>(
 
 ticketSchema.index({ owner: 1, createdAt: -1 });
 
-export const Ticket = model<ITicket>('Ticket', ticketSchema);
+export const Ticket = ticketDbConnection.model<ITicket>('Ticket', ticketSchema);

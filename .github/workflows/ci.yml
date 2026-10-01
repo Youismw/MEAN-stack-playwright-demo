@@ -49,6 +49,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      MONGO_USERS_URI: mongodb://localhost:27017/quicktix_users_test
+      MONGO_TICKETS_URI: mongodb://localhost:27017/quicktix_tickets_test
       MONGO_URI: mongodb://localhost:27017/quicktix_test
       JWT_SECRET: ci-only-secret
     steps:

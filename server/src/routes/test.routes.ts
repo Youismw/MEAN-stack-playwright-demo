@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
-import mongoose, { Types } from 'mongoose';
+import { Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { Ticket } from '../models/Ticket.js';
+import { userDbConnection, ticketDbConnection } from '../db.js';
 
 const router = Router();
 
@@ -19,22 +20,24 @@ const TICKET_4_ID = new Types.ObjectId('100000000000000000000004');
 const TICKET_5_ID = new Types.ObjectId('100000000000000000000005');
 
 router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
-  // Safety guard: refuse to wipe unless database name ends in _test
-  const dbName = mongoose.connection.name || '';
-  if (!dbName.endsWith('_test')) {
+  // Safety guard: refuse to wipe unless both database names end in _test
+  const userDbName = userDbConnection.name || '';
+  const ticketDbName = ticketDbConnection.name || '';
+
+  if (!userDbName.endsWith('_test') || !ticketDbName.endsWith('_test')) {
     res.status(403).json({
       error: 'Forbidden',
-      message: `Reset refused: database '${dbName}' does not end in '_test'`,
+      message: `Reset refused: database '${userDbName}' or '${ticketDbName}' does not end in '_test'`,
     });
     return;
   }
 
   try {
-    // 1. Wipe collections
+    // 1. Wipe collections across separated databases
     await User.deleteMany({});
     await Ticket.deleteMany({});
 
-    // 2. Seed Users
+    // 2. Seed Users into user database
     const users = [
       {
         _id: USER_1_ID,
@@ -51,7 +54,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
     ];
     await User.insertMany(users);
 
-    // 3. Seed Tickets (fixed timestamps 1 day apart for deterministic sort order)
+    // 3. Seed Tickets into backend/tickets database (fixed timestamps 1 day apart for deterministic sort order)
     const baseDate = new Date();
     const tickets = [
       {

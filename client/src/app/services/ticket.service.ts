@@ -2,12 +2,15 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+
 export interface Ticket {
   _id: string;
   title: string;
   description?: string;
-  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
-  status: 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+  priority: TicketPriority;
+  status: TicketStatus;
   owner?: string;
   createdAt: string;
   updatedAt: string;

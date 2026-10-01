@@ -26,6 +26,8 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       PORT: '3000',
+      MONGO_USERS_URI: process.env.MONGO_USERS_URI || 'mongodb://localhost:27017/quicktix_users_test',
+      MONGO_TICKETS_URI: process.env.MONGO_TICKETS_URI || 'mongodb://localhost:27017/quicktix_tickets_test',
       MONGO_URI: process.env.MONGO_URI || 'mongodb://localhost:27017/quicktix_test',
       JWT_SECRET: process.env.JWT_SECRET || 'test-only-secret',
     },

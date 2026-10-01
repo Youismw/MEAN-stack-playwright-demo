@@ -7,6 +7,9 @@
     "test:e2e": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
     "test:ui": "playwright test --ui",
+    "test:unit": "npm run test --prefix server && npm run test --prefix client -- --watch=false",
+    "test:server": "npm run test --prefix server",
+    "test:client": "npm run test --prefix client -- --watch=false",
     "typecheck": "tsc --noEmit && npm run typecheck --prefix server && npm run build --prefix client"
   },
   "devDependencies": {
