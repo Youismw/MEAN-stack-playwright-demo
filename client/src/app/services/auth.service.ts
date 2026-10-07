@@ -146,6 +146,7 @@ export class AuthService {
     if (this.isTokenExpired(token)) {
       localStorage.removeItem(this.tokenKey);
       this.currentUserToken.set(null);
+      /**if not authenticated then redirect to login  */
       return false;
     }
     return true;
