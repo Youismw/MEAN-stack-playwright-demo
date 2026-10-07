@@ -1,3 +1,48 @@
+/**
+ * ============================================================================
+ * FOLDER: client/src/app/components/ticket-list/
+ * ============================================================================
+ * Ticket Dashboard Directory: Contains the primary dashboard view component,
+ * filtering toolbar, ticket cards grid, and modal coordination logic.
+ *
+ * ============================================================================
+ * MODULE: client/src/app/components/ticket-list/ticket-list.component.ts (Dashboard Controller)
+ * ============================================================================
+ * WHAT THIS MODULE DOES:
+ * Serves as the central stateful orchestrator for the user's ticket workspace:
+ *   1. Data Stream: Manages the `tickets` signal (`signal<Ticket[]>([])`).
+ *   2. Reactive Filtering: Uses an RxJS `filterSubject` and `switchMap` to ensure
+ *      rapid dropdown filter changes cancel out-of-order in-flight HTTP requests.
+ *   3. Modal Management: Coordinates the open/close lifecycle and state transitions
+ *      for `<app-ticket-form>` and `<app-confirm-dialog>`.
+ *   4. Immutable State Updates:
+ *      - Creation: Prepends newly created tickets to the front of the list.
+ *      - Update: Replaces the edited ticket in-place or removes it if filtered out.
+ *      - Deletion: Removes the deleted ticket from the reactive array.
+ *   5. Authentication & Sign Out: Displays user email and delegates logout to `AuthService`.
+ *
+ * COMMUNICATES WITH:
+ *   - Services:
+ *     - `client/src/app/services/ticket.service.ts`: Calls all CRUD methods.
+ *     - `client/src/app/services/auth.service.ts`: Fetches user email and handles logout.
+ *   - Child Components:
+ *     - `HeaderComponent`: Top navigation bar.
+ *     - `TicketComponent`: Child card for each ticket.
+ *     - `TicketFormComponent`: Creation & edit modal.
+ *     - `ConfirmDialogComponent`: Deletion confirmation dialog.
+ *   - Route: Bound to protected route `/tickets` in `client/src/app/app.routes.ts`.
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. User navigates to `/tickets` -> `ngOnInit()` triggers `loadTickets()`.
+ *   2. `filterSubject` emits `undefined` (representing 'All').
+ *   3. `switchMap` calls `ticketService.getTickets()`.
+ *   4. Response arrives: sets `tickets.set(data)` and `loading.set(false)`.
+ *   5. Template loops over `tickets()` and renders `<app-ticket>` components.
+ *   6. User clicks "+ Create Ticket" -> opens modal -> saves ticket.
+ *   7. New ticket returned from server is prepended to `tickets` signal -> DOM updates instantly.
+ * ============================================================================
+ */
+
 import { Component, OnInit, signal, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -25,20 +70,25 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.compone
   styleUrl: './ticket-list.component.css',
 })
 export class TicketListComponent implements OnInit {
+  // Subscription lifecycle manager
   private destroyRef = inject(DestroyRef);
+  // Reactive stream for filter events
   private filterSubject = new Subject<string | undefined>();
 
+  // --------------------------------------------------------------------------
+  // Reactive Signals for UI State
+  // --------------------------------------------------------------------------
   tickets = signal<Ticket[]>([]);
   loading = signal(true);
   selectedStatus = 'All';
 
-  // Form Modal State
+  // Form Modal State (Creation and Edit)
   isFormModalOpen = signal(false);
   editingTicket: Ticket | null = null;
   isSubmitting = signal(false);
   formServerError = signal('');
 
-  // Delete Modal State
+  // Delete Confirmation Modal State
   isConfirmModalOpen = signal(false);
   deletingTicket: Ticket | null = null;
 
@@ -49,6 +99,7 @@ export class TicketListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Setup reactive pipeline with switchMap to avoid race conditions when switching filters
     this.filterSubject
       .pipe(
         switchMap((filterStatus) => {
@@ -70,9 +121,13 @@ export class TicketListComponent implements OnInit {
         this.cdr.markForCheck();
       });
 
+    // Initial data fetch
     this.loadTickets();
   }
 
+  /**
+   * Pushes the current filter value through the RxJS switchMap pipeline.
+   */
   loadTickets(): void {
     const filterStatus = this.selectedStatus === 'All' ? undefined : this.selectedStatus;
     this.filterSubject.next(filterStatus);
@@ -82,7 +137,9 @@ export class TicketListComponent implements OnInit {
     this.loadTickets();
   }
 
+  // --------------------------------------------------------------------------
   // Create & Edit Modal Actions
+  // --------------------------------------------------------------------------
   openCreateModal(): void {
     this.editingTicket = null;
     this.formServerError.set('');
@@ -104,12 +161,18 @@ export class TicketListComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  /**
+   * Handles save events emitted by TicketFormComponent (both create and update).
+   */
   onSaveTicket(formData: TicketFormData): void {
     this.isSubmitting.set(true);
     this.formServerError.set('');
     this.cdr.markForCheck();
 
     if (this.editingTicket) {
+      // ------------------------------------------------------------------------
+      // UPDATE FLOW (PUT /api/tickets/:id)
+      // ------------------------------------------------------------------------
       const ticketId = this.editingTicket._id;
       this.ticketService
         .updateTicket(ticketId, formData)
@@ -121,10 +184,12 @@ export class TicketListComponent implements OnInit {
             const current = [...this.tickets()];
             const index = current.findIndex((t) => t._id === updated._id);
             if (index !== -1) {
+              // If status still matches active filter, replace in-place
               if (this.selectedStatus === 'All' || this.selectedStatus === updated.status) {
                 current[index] = updated;
                 this.tickets.set(current);
               } else {
+                // Otherwise remove from current view
                 current.splice(index, 1);
                 this.tickets.set(current);
               }
@@ -142,6 +207,9 @@ export class TicketListComponent implements OnInit {
           },
         });
     } else {
+      // ------------------------------------------------------------------------
+      // CREATE FLOW (POST /api/tickets)
+      // ------------------------------------------------------------------------
       this.ticketService
         .createTicket(formData)
         .pipe(takeUntilDestroyed(this.destroyRef))
@@ -149,6 +217,7 @@ export class TicketListComponent implements OnInit {
           next: (created) => {
             this.isSubmitting.set(false);
             this.closeFormModal();
+            // Prepend new ticket to top of list if matching active filter
             if (this.selectedStatus === 'All' || this.selectedStatus === created.status) {
               this.tickets.set([created, ...this.tickets()]);
             }
@@ -163,7 +232,9 @@ export class TicketListComponent implements OnInit {
     }
   }
 
-  // Delete Confirmation Modal Actions
+  // --------------------------------------------------------------------------
+  // Delete Modal Actions
+  // --------------------------------------------------------------------------
   openDeleteModal(ticket: Ticket): void {
     this.deletingTicket = ticket;
     this.isConfirmModalOpen.set(true);
@@ -176,6 +247,9 @@ export class TicketListComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  /**
+   * Confirms deletion and issues DELETE request to backend.
+   */
   onConfirmDelete(): void {
     if (!this.deletingTicket) return;
 
@@ -185,6 +259,7 @@ export class TicketListComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
+          // Remove deleted ticket from reactive signal array
           this.tickets.set(this.tickets().filter((t) => t._id !== id));
           this.closeDeleteModal();
           this.cdr.markForCheck();
@@ -196,6 +271,9 @@ export class TicketListComponent implements OnInit {
       });
   }
 
+  // --------------------------------------------------------------------------
+  // User Session Properties
+  // --------------------------------------------------------------------------
   get userEmail(): string {
     return this.authService.getUserEmail() || 'qa.user@quicktix.test';
   }

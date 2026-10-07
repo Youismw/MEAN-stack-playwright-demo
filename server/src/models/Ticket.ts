@@ -1,20 +1,58 @@
+/**
+ * ============================================================================
+ * FOLDER: server/src/models/
+ * ============================================================================
+ * Data Modeling Layer: Contains Mongoose schema definitions, TypeScript
+ * interfaces, and database model bindings for all entities in the backend.
+ *
+ * ============================================================================
+ * MODULE: server/src/models/Ticket.ts (Support Ticket Data Model)
+ * ============================================================================
+ * WHAT THIS MODULE DOES:
+ * Defines the schema, validation rules, indexes, and TypeScript types for
+ * Support Tickets. It compiles the model on `ticketDbConnection` (MongoDB Tickets
+ * DB on port 27018), enforcing domain separation from the Users DB.
+ *
+ * COMMUNICATES WITH:
+ *   - `server/src/config/db.ts`: Imports `ticketDbConnection` to bind the model.
+ *   - `server/src/routes/ticket.routes.ts`: Used for all ticket CRUD operations
+ *     (Ticket.find, Ticket.findOne, Ticket.create, Ticket.findByIdAndDelete).
+ *   - `server/src/routes/playwright/test.routes.ts`: Used to wipe and seed test tickets.
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. User fills out ticket form and clicks 'Create Ticket' on frontend.
+ *   2. `ticket.routes.ts` receives payload and calls `Ticket.create({ ...payload, owner: req.user.id })`.
+ *   3. Mongoose validates:
+ *      - title length is between 3 and 100 characters.
+ *      - priority is one of: 'Low' | 'Medium' | 'High' | 'Urgent'.
+ *      - status is one of: 'Open' | 'In Progress' | 'Resolved' | 'Closed'.
+ *      - owner ObjectId is provided.
+ *   4. Writes the document to the tickets collection in MongoDB Tickets DB (port 27018).
+ *   5. The compound index `{ owner: 1, createdAt: -1 }` accelerates queries when
+ *      users view their ticket stream sorted by newest first.
+ * ============================================================================
+ */
+
 import { Schema, Document, Types } from 'mongoose';
 import { ticketDbConnection } from '../config/db.js';
 
+// Domain union types representing strict allowable states
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
 
+// TypeScript interface representing a Ticket document in memory
 export interface ITicket extends Document {
   _id: Types.ObjectId;
   title: string;
   description?: string;
   priority: TicketPriority;
   status: TicketStatus;
-  owner: Types.ObjectId;
+  owner: Types.ObjectId; // References the User ObjectId who created this ticket
   createdAt: Date;
   updatedAt: Date;
 }
 
+// Mongoose schema definition enforcing business validation rules
 const ticketSchema = new Schema<ITicket>(
   {
     title: {
@@ -49,16 +87,18 @@ const ticketSchema = new Schema<ITicket>(
     },
     owner: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'User', // Logical reference to User model
       required: true,
       index: true,
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // Automatically manages createdAt and updatedAt timestamps
   }
 );
 
+// Compound index to optimize queries fetching a user's tickets ordered by creation time
 ticketSchema.index({ owner: 1, createdAt: -1 });
 
+// Compile the model on the isolated ticketDbConnection (MongoDB Tickets DB on port 27018)
 export const Ticket = ticketDbConnection.model<ITicket>('Ticket', ticketSchema);
