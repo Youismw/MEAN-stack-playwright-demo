@@ -9,7 +9,7 @@ import {
   resolveDatabaseUris,
   userDbConnection,
   ticketDbConnection,
-} from './db.js';
+} from './config/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,7 +50,11 @@ async function startServer(): Promise<void> {
 
     const server = app.listen(PORT, () => {
       console.log(`QuickTix Server is running on http://localhost:${PORT} [NODE_ENV=${NODE_ENV}]`);
-      console.log(`Serving static files from: '${clientDist}'`);
+      if (['production', 'test'].includes(NODE_ENV)) {
+        console.log(`Serving static files from: '${clientDist}'`);
+      } else {
+        console.log(`API mode only: client serving disabled on port ${PORT} (Angular served on http://localhost:4200)`);
+      }
     });
 
     const gracefulShutdown = async (signal: string) => {

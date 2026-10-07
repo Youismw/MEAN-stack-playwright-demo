@@ -2,7 +2,7 @@ import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import { app } from '../app.js';
-import { connectDatabases, closeDatabases } from '../db.js';
+import { connectDatabases, closeDatabases } from '../config/db.js';
 
 describe('Health Routes Unit / Integration Tests', () => {
   after(async () => {

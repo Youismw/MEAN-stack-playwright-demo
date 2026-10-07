@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { app } from '../app.js';
-import { connectDatabases, closeDatabases } from '../db.js';
+import { connectDatabases, closeDatabases } from '../config/db.js';
 import { User } from '../models/User.js';
 
 describe('Auth Routes Unit Tests', () => {

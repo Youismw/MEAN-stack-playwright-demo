@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 
 process.env.NODE_ENV = 'test';
-const { app } = await import('../app.js');
-const { connectDatabases, closeDatabases } = await import('../db.js');
+const { app } = await import('../../app.js');
+const { connectDatabases, closeDatabases } = await import('../../config/db.js');
 
 describe('Test Routes Integration Tests', () => {
   before(async () => {

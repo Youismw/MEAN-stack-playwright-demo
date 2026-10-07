@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { User } from '../models/User.js';
-import { Ticket } from '../models/Ticket.js';
-import { userDbConnection, ticketDbConnection } from '../db.js';
+import { User } from '../../models/User.js';
+import { Ticket } from '../../models/Ticket.js';
+import { userDbConnection, ticketDbConnection } from '../../config/db.js';
 
 const router = Router();
 
@@ -122,7 +122,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
 
   try {
     const currentRun = resetLock.then(executeReset, executeReset);
-    resetLock = currentRun.then(() => {}, () => {});
+    resetLock = currentRun.then(() => { }, () => { });
     const result = await currentRun;
     res.status(200).json(result);
   } catch (err: any) {

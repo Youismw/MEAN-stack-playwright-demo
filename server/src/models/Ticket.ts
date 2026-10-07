@@ -1,5 +1,5 @@
 import { Schema, Document, Types } from 'mongoose';
-import { ticketDbConnection } from '../db.js';
+import { ticketDbConnection } from '../config/db.js';
 
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';

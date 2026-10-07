@@ -4,7 +4,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 import { app } from '../app.js';
-import { connectDatabases, closeDatabases } from '../db.js';
+import { connectDatabases, closeDatabases } from '../config/db.js';
 import { Ticket } from '../models/Ticket.js';
 
 describe('Ticket Routes Unit Tests', () => {

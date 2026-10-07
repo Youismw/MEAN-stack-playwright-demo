@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { authRouter } from './routes/auth.routes.js';
 import { ticketRouter } from './routes/ticket.routes.js';
 import { healthRouter } from './routes/health.routes.js';
-import { testRouter } from './routes/test.routes.js';
+import { testRouter } from './routes/playwright/test.routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,8 +70,9 @@ export const clientDist = process.env.CLIENT_DIST
   ? path.resolve(process.env.CLIENT_DIST)
   : candidateDistPaths.find((p) => fs.existsSync(path.join(p, 'index.html'))) || candidateDistPaths[0];
 
-// Serve static assets if client build exists
-if (fs.existsSync(clientDist)) {
+// Serve static assets only in production or test environments (in development, client is served on port 4200)
+const isProductionOrTest = ['production', 'test'].includes((process.env.NODE_ENV || '').trim().toLowerCase());
+if (isProductionOrTest && fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
 
   // Express 5 compatible SPA Catch-all middleware

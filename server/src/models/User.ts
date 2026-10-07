@@ -1,5 +1,5 @@
 import { Schema, Document, Types } from 'mongoose';
-import { userDbConnection } from '../db.js';
+import { userDbConnection } from '../config/db.js';
 
 export interface IUser extends Document {
   _id: Types.ObjectId;

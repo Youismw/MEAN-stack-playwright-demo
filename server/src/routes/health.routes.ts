@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { userDbConnection, ticketDbConnection } from '../db.js';
+import { userDbConnection, ticketDbConnection } from '../config/db.js';
 
 const router = Router();
 
