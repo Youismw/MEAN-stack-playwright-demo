@@ -60,10 +60,48 @@
 
 .ticket-card-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.6rem;
   padding-top: 0.9rem;
   border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.quick-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.quick-status-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.quick-status-select {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  background: var(--bg-surface-elevated, #1e293b);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xs, 4px);
+  cursor: pointer;
+  transition: all var(--transition-fast, 150ms ease);
+}
+
+.quick-status-select:hover,
+.quick-status-select:focus {
+  border-color: var(--color-primary, #f59e0b);
+  outline: none;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Badges */

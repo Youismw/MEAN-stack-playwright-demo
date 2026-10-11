@@ -38,24 +38,33 @@ import { userDbConnection, ticketDbConnection } from '../config/db.js';
 const router = Router();
 
 // GET /api/health
-router.get('/health', (_req: Request, res: Response): void => {
+router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   // readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
   const isUserDbConnected = userDbConnection.readyState === 1;
   const isTicketDbConnected = ticketDbConnection.readyState === 1;
-  const isMongoConnected = isUserDbConnected && isTicketDbConnected;
 
-  if (isMongoConnected) {
-    res.status(200).json({ status: 'ok', mongo: 'connected' });
-  } else {
-    res.status(503).json({
-      status: 'error',
-      mongo: 'disconnected',
-      details: {
-        usersDb: isUserDbConnected ? 'connected' : 'disconnected',
-        ticketsDb: isTicketDbConnected ? 'connected' : 'disconnected',
-      },
-    });
+  if (isUserDbConnected && isTicketDbConnected) {
+    try {
+      // Actively ping both MongoDB connections to ensure server is actively responding
+      await Promise.all([
+        userDbConnection.db?.admin().ping(),
+        ticketDbConnection.db?.admin().ping(),
+      ]);
+      res.status(200).json({ status: 'ok', mongo: 'connected' });
+      return;
+    } catch {
+      // Fall through to 503 if ping failed
+    }
   }
+
+  res.status(503).json({
+    status: 'error',
+    mongo: 'disconnected',
+    details: {
+      usersDb: isUserDbConnected ? 'connected' : 'disconnected',
+      ticketsDb: isTicketDbConnected ? 'connected' : 'disconnected',
+    },
+  });
 });
 
 export const healthRouter = router;

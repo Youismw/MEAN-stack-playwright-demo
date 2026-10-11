@@ -123,4 +123,85 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
   }
 });
 
+// ----------------------------------------------------------------------------
+// Rate Limiter for Account Registration
+// ----------------------------------------------------------------------------
+export const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isTest ? 1000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'TooManyRequests',
+    message: 'Too many account creation attempts, please try again later',
+  },
+});
+
+// ----------------------------------------------------------------------------
+// POST /api/auth/register (Create New Account)
+// ----------------------------------------------------------------------------
+router.post('/register', registerLimiter, async (req: Request, res: Response): Promise<void> => {
+  const { email, password } = req.body;
+
+  if (!email || typeof email !== 'string') {
+    res.status(400).json({ error: 'ValidationError', message: 'Email is required' });
+    return;
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+  const emailRegex = /^\S+@\S+\.\S+$/;
+  if (!emailRegex.test(cleanEmail)) {
+    res.status(400).json({ error: 'ValidationError', message: 'Please enter a valid email address' });
+    return;
+  }
+
+  if (!password || typeof password !== 'string' || password.trim().length < 6) {
+    res.status(400).json({
+      error: 'ValidationError',
+      message: 'Password must be at least 6 characters long',
+    });
+    return;
+  }
+
+  const cleanPassword = password.trim();
+
+  try {
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing) {
+      res.status(409).json({
+        error: 'Conflict',
+        message: 'An account with this email address already exists',
+      });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(cleanPassword, 10);
+    const newUser = new User({
+      email: cleanEmail,
+      password: hashedPassword,
+      role: 'user',
+    });
+
+    await newUser.save();
+
+    const secret = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
+    const token = jwt.sign(
+      { id: newUser._id.toString(), email: newUser.email },
+      secret,
+      { algorithm: 'HS256', expiresIn: '24h' }
+    );
+
+    res.status(201).json({ token, message: 'Account created successfully' });
+  } catch (err: any) {
+    if (err.code === 11000) {
+      res.status(409).json({
+        error: 'Conflict',
+        message: 'An account with this email address already exists',
+      });
+      return;
+    }
+    res.status(500).json({ error: 'ServerError', message: err.message });
+  }
+});
+
 export const authRouter = router;

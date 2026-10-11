@@ -41,8 +41,9 @@ import { TicketListComponent } from './components/ticket-list/ticket-list.compon
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
-  // Public Login view
+  // Public Login and Register views
   { path: 'login', component: LoginComponent },
+  { path: 'register', component: LoginComponent },
 
   // Protected Dashboard ticket view (guarded by authGuard)
   { path: 'tickets', component: TicketListComponent, canActivate: [authGuard] },

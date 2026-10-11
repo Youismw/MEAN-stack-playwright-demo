@@ -47,6 +47,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { ticketRouter } from './routes/ticket.routes.js';
 import { healthRouter } from './routes/health.routes.js';
 import { testRouter } from './routes/playwright/test.routes.js';
+import { errorHandler } from './middleware/error.js';
 
 // Resolve file paths for ES Module compatibility
 const __filename = fileURLToPath(import.meta.url);
@@ -167,15 +168,6 @@ app.use('/api', (_req: Request, res: Response) => {
 // ----------------------------------------------------------------------------
 // 7. Central Error Handling Middleware
 // ----------------------------------------------------------------------------
-// Catches unhandled errors or body-parsing exceptions across the entire app.
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  // Gracefully handle malformed JSON syntax errors from express.json()
-  if (err.type === 'entity.parse.failed' || err.status === 400 || err.statusCode === 400) {
-    res.status(400).json({ error: 'BadRequest', message: 'Malformed JSON payload' });
-    return;
-  }
-  console.error('Unhandled Server Error:', err);
-  const isProduction = (process.env.NODE_ENV || '').toLowerCase() === 'production';
-  const safeMessage = isProduction ? 'An unexpected error occurred' : (err.message || 'An unexpected error occurred');
-  res.status(500).json({ error: 'InternalServerError', message: safeMessage });
-});
+// Catches domain CustomErrors, Mongoose exceptions, and body-parsing exceptions across the app.
+app.use(errorHandler);
+

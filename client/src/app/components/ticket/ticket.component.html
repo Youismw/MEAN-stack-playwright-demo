@@ -24,11 +24,30 @@
   </div>
 
   <div class="ticket-card-footer">
-    <button type="button" data-testid="ticket-edit" (click)="onEdit()" class="btn btn-secondary btn-sm">
-      Edit
-    </button>
-    <button type="button" data-testid="ticket-delete" (click)="onDelete()" class="btn btn-danger-outline btn-sm">
-      Delete
-    </button>
+    <div class="quick-status-wrap">
+      <label [for]="'status-' + ticket._id" class="quick-status-label">Status:</label>
+      <select
+        [id]="'status-' + ticket._id"
+        [value]="ticket.status"
+        (change)="onStatusSelect($event)"
+        class="quick-status-select"
+        data-testid="ticket-quick-status"
+        title="Quick change ticket status"
+      >
+        <option value="Open">Open</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Resolved">Resolved</option>
+        <option value="Closed">Closed</option>
+      </select>
+    </div>
+
+    <div class="footer-actions">
+      <button type="button" data-testid="ticket-edit" (click)="onEdit()" class="btn btn-secondary btn-sm">
+        Edit
+      </button>
+      <button type="button" data-testid="ticket-delete" (click)="onDelete()" class="btn btn-danger-outline btn-sm">
+        Delete
+      </button>
+    </div>
   </div>
 </article>

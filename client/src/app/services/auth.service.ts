@@ -70,13 +70,20 @@ export class AuthService {
   private readonly tokenKey = 'token';
   // Reactive Signal holding current active token string (or null if logged out)
   readonly currentUserToken = signal<string | null>(this.getToken());
+  private tokenExpirationTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private http: HttpClient, private router: Router) {
+    const initialToken = this.getToken();
+    if (initialToken) {
+      this.scheduleAutoLogout(initialToken);
+    }
+
     // Cross-Tab Synchronization: if user logs out in another browser tab, log out here too
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (event: StorageEvent) => {
         if (event.key === this.tokenKey) {
           this.currentUserToken.set(event.newValue);
+          this.scheduleAutoLogout(event.newValue);
           if (!event.newValue && !this.router.url.includes('/login')) {
             this.router.navigate(['/login']);
           }
@@ -86,8 +93,34 @@ export class AuthService {
   }
 
   /**
+   * Schedules an automatic logout timer based on the token's exp claim.
+   * Automatically logs out the user the moment their session expires while idle.
+   */
+  scheduleAutoLogout(token: string | null): void {
+    if (this.tokenExpirationTimer) {
+      clearTimeout(this.tokenExpirationTimer);
+      this.tokenExpirationTimer = null;
+    }
+
+    if (!token) return;
+
+    const payload = decodeJwtPayload(token);
+    if (!payload || !payload.exp) return;
+
+    const remainingMs = payload.exp * 1000 - Date.now();
+    if (remainingMs <= 0) {
+      this.logout();
+      return;
+    }
+
+    this.tokenExpirationTimer = setTimeout(() => {
+      this.logout();
+    }, remainingMs);
+  }
+
+  /**
    * Submits credentials to the backend login endpoint.
-   * On success, persists token to localStorage and updates reactive signal.
+   * On success, persists token to localStorage, arms auto-logout timer, and updates reactive signal.
    */
   login(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', { email, password }).pipe(
@@ -95,15 +128,36 @@ export class AuthService {
         if (response && response.token) {
           localStorage.setItem(this.tokenKey, response.token);
           this.currentUserToken.set(response.token);
+          this.scheduleAutoLogout(response.token);
         }
       })
     );
   }
 
   /**
-   * Purges stored credentials, clears auth signal, and redirects to login view.
+   * Registers a new account with the backend.
+   * On success, automatically persists token to localStorage, arms auto-logout timer, and signs in.
+   */
+  register(email: string, password: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>('/api/auth/register', { email, password }).pipe(
+      tap((response) => {
+        if (response && response.token) {
+          localStorage.setItem(this.tokenKey, response.token);
+          this.currentUserToken.set(response.token);
+          this.scheduleAutoLogout(response.token);
+        }
+      })
+    );
+  }
+
+  /**
+   * Purges stored credentials, clears auto-logout timer, and redirects to login view.
    */
   logout(): void {
+    if (this.tokenExpirationTimer) {
+      clearTimeout(this.tokenExpirationTimer);
+      this.tokenExpirationTimer = null;
+    }
     localStorage.removeItem(this.tokenKey);
     this.currentUserToken.set(null);
     this.router.navigate(['/login']);

@@ -189,3 +189,65 @@
   font-weight: 600;
   font-family: monospace;
 }
+
+/* Auth Mode Tabs */
+.auth-tabs {
+  display: flex;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem;
+  margin-bottom: 1.5rem;
+  gap: 0.25rem;
+}
+
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.auth-tab:hover {
+  color: var(--text-primary);
+}
+
+.auth-tab.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Mode Switch */
+.mode-switch {
+  margin-top: 1.25rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.btn-switch-mode {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity var(--transition-fast);
+}
+
+.btn-switch-mode:hover {
+  opacity: 0.8;
+}

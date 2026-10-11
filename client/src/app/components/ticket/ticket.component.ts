@@ -31,7 +31,7 @@
 
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Ticket } from '../../services/ticket.service';
+import { Ticket, TicketStatus } from '../../services/ticket.service';
 
 @Component({
   selector: 'app-ticket',
@@ -46,6 +46,7 @@ export class TicketComponent {
   // Event emitters to notify the parent list container
   @Output() edit = new EventEmitter<Ticket>();
   @Output() delete = new EventEmitter<Ticket>();
+  @Output() statusChange = new EventEmitter<{ id: string; status: TicketStatus }>();
 
   /**
    * Converts spaced status strings (e.g., 'In Progress') into CSS-safe class names ('in-progress').
@@ -70,5 +71,13 @@ export class TicketComponent {
 
   onDelete(): void {
     this.delete.emit(this.ticket);
+  }
+
+  onStatusSelect(event: Event): void {
+    event.stopPropagation();
+    const newStatus = (event.target as HTMLSelectElement).value as TicketStatus;
+    if (newStatus && newStatus !== this.ticket.status) {
+      this.statusChange.emit({ id: this.ticket._id, status: newStatus });
+    }
   }
 }

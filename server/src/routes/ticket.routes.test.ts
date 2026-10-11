@@ -1,11 +1,13 @@
+process.env.NODE_ENV = 'test';
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { app } from '../app.js';
-import { connectDatabases, closeDatabases } from '../config/db.js';
-import { Ticket } from '../models/Ticket.js';
+
+const { app } = await import('../app.js');
+const { connectDatabases, closeDatabases, ticketDbConnection } = await import('../config/db.js');
+const { Ticket } = await import('../models/Ticket.js');
 
 describe('Ticket Routes Unit Tests', () => {
   const secret = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
@@ -28,6 +30,10 @@ describe('Ticket Routes Unit Tests', () => {
 
   before(async () => {
     await connectDatabases();
+    // CRITICAL GUARD: Refuse to execute or delete records unless connected to a test database
+    if (!ticketDbConnection.name || !ticketDbConnection.name.endsWith('_test')) {
+      throw new Error(`CRITICAL GUARD: Refusing to wipe non-test database: '${ticketDbConnection.name}'`);
+    }
     await Ticket.deleteMany({});
 
     const t1 = await Ticket.create({

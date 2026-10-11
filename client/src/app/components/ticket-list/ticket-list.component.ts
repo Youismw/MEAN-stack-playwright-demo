@@ -43,13 +43,13 @@
  * ============================================================================
  */
 
-import { Component, OnInit, signal, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TicketService, Ticket } from '../../services/ticket.service';
+import { TicketService, Ticket, TicketStatus } from '../../services/ticket.service';
 import { AuthService } from '../../services/auth.service';
 import { HeaderComponent } from '../header/header.component';
 import { TicketComponent } from '../ticket/ticket.component';
@@ -81,6 +81,33 @@ export class TicketListComponent implements OnInit {
   tickets = signal<Ticket[]>([]);
   loading = signal(true);
   selectedStatus = 'All';
+
+  // Live text search query & category tabs inspired by modern MEAN dashboard
+  searchQuery = signal<string>('');
+  statusTabs = ['All', 'Open', 'In Progress', 'Resolved', 'Closed'];
+
+  // Reactive computed signals
+  filteredTickets = computed(() => {
+    const list = this.tickets();
+    const query = this.searchQuery().toLowerCase().trim();
+    if (!query) return list;
+    return list.filter(
+      (t) =>
+        t.title.toLowerCase().includes(query) ||
+        (t.description && t.description.toLowerCase().includes(query))
+    );
+  });
+
+  ticketStats = computed(() => {
+    const list = this.tickets();
+    return {
+      total: list.length,
+      open: list.filter((t) => t.status === 'Open').length,
+      inProgress: list.filter((t) => t.status === 'In Progress').length,
+      resolved: list.filter((t) => t.status === 'Resolved').length,
+      closed: list.filter((t) => t.status === 'Closed').length,
+    };
+  });
 
   // Form Modal State (Creation and Edit)
   isFormModalOpen = signal(false);
@@ -135,6 +162,39 @@ export class TicketListComponent implements OnInit {
 
   onFilterChange(): void {
     this.loadTickets();
+  }
+
+  selectTab(tab: string): void {
+    if (this.selectedStatus !== tab) {
+      this.selectedStatus = tab;
+      this.onFilterChange();
+    }
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+  }
+
+  onQuickStatusChange(change: { id: string; status: TicketStatus }): void {
+    this.ticketService
+      .updateTicket(change.id, { status: change.status })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          const current = [...this.tickets()];
+          const index = current.findIndex((t) => t._id === updated._id);
+          if (index !== -1) {
+            if (this.selectedStatus === 'All' || this.selectedStatus === updated.status) {
+              current[index] = updated;
+              this.tickets.set(current);
+            } else {
+              current.splice(index, 1);
+              this.tickets.set(current);
+            }
+            this.cdr.markForCheck();
+          }
+        },
+      });
   }
 
   // --------------------------------------------------------------------------

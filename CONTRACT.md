@@ -21,21 +21,24 @@ The test reset endpoint (`POST /api/test/reset`) wipes the collections and inser
 ### Users
 | Entity | Email | Password (Plain) | _id | Role |
 | :--- | :--- | :--- | :--- | :--- |
-| **User 1 (Primary QA)** | `qa.user@quicktix.test` | `Passw0rd!test` | `000000000000000000000001` | `user` |
+| **Developer / QA (Persistent)** | `qa.user@quicktix.test` | `Passw0rd!test` | `000000000000000000000001` | `user` |
+| **Playwright Bot (Automated E2E)** | `playwright.bot@quicktix.test` | `Passw0rd!test` | `000000000000000000000099` | `user` |
 | **User 2 (Foreign User)** | `other.user@quicktix.test` | `Passw0rd!test` | `000000000000000000000002` | `user` |
 
 *Password Hashing Rule*: Bcrypt hash is computed **once** at module load with cost factor 4 (`bcrypt.hashSync('Passw0rd!test', 4)`), ensuring `/api/test/reset` executes in < 20ms.
 
-### Tickets (Seeded)
+*User Account Isolation Rule*: Playwright resets (`POST /api/test/reset`) strictly wipe only `playwright.bot` and `other.user` entities. Tickets created by the developer (`qa.user@quicktix.test`) or any custom users are **never deleted**, preserving data persistence across E2E test runs.
+
+### Tickets (Seeded for Playwright Bot)
 | ID | Title | Status | Priority | Owner | CreatedAt |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `100000000000000000000001` | "Fix login button styling" | `Open` | `High` | User 1 | T - 3 days |
-| `100000000000000000000002` | "Update documentation footer" | `Open` | `Low` | User 1 | T - 2 days |
-| `100000000000000000000003` | "Investigate memory leak" | `In Progress` | `Medium` | User 1 | T - 1 day |
-| `100000000000000000000004` | "Setup automated backups" | `Resolved` | `Low` | User 1 | T |
+| `100000000000000000000001` | "Fix login button styling" | `Open` | `High` | Playwright Bot | T - 3 days |
+| `100000000000000000000002` | "Update documentation footer" | `Open` | `Low` | Playwright Bot | T - 2 days |
+| `100000000000000000000003` | "Investigate memory leak" | `In Progress` | `Medium` | Playwright Bot | T - 1 day |
+| `100000000000000000000004` | "Setup automated backups" | `Resolved` | `Low` | Playwright Bot | T |
 | `100000000000000000000005` | "Foreign user secret issue" | `Open` | `Urgent` | User 2 | T |
 
-*Owner Scoping Rule*: User 1 must **never** see Ticket 5. Accessing Ticket 5 with User 1's token must return `404 Not Found`.
+*Owner Scoping Rule*: Playwright Bot must **never** see Ticket 5. Accessing Ticket 5 with Playwright Bot's token must return `404 Not Found`.
 
 ---
 
@@ -69,6 +72,12 @@ Base URL: `/api`
   - Body: `{ email, password }`
   - Success: `200 { token: "..." }`
   - Failure: `401 { error: "Unauthorized", message: "Invalid email or password" }`
+- `POST /api/auth/register`
+  - Body: `{ email, password }`
+  - Validation: Email must match standard format, password must be >= 6 characters.
+  - Success: `201 { token: "...", message: "Account created successfully" }`
+  - Conflict: `409 { error: "Conflict", message: "An account with this email already exists" }`
+  - Failure: `400 { error: "ValidationError", message: "..." }`
 
 ### Ticket CRUD Endpoints
 - `GET /api/tickets?status=`

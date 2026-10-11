@@ -87,4 +87,24 @@ describe('AuthService', () => {
     localStorage.setItem('token', expiredJwt);
     expect(service.isAuthenticated()).toBe(false);
   });
+
+  it('should automatically log out when auto-logout timer fires', () => {
+    vi.useFakeTimers();
+    const futureExp = Math.floor(Date.now() / 1000) + 10;
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(JSON.stringify({ id: '1', email: 'user@test.com', exp: futureExp }));
+    const validJwt = `${header}.${payload}.signature`;
+
+    localStorage.setItem('token', validJwt);
+    service.currentUserToken.set(validJwt);
+    service.scheduleAutoLogout(validJwt);
+
+    vi.advanceTimersByTime(11000);
+
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(service.currentUserToken()).toBeNull();
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
+
+    vi.useRealTimers();
+  });
 });

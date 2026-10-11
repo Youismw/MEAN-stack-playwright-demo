@@ -7,7 +7,7 @@ test.describe('Authentication & Access Control', () => {
   test('Test 1: Bad credentials show login-error', async ({ page }) => {
     await page.goto('/login');
 
-    await page.getByTestId('login-email').fill('qa.user@quicktix.test');
+    await page.getByTestId('login-email').fill('playwright.bot@quicktix.test');
     await page.getByTestId('login-password').fill('WrongPassword123!');
     await page.getByTestId('login-submit').click();
 

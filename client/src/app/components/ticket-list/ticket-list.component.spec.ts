@@ -182,4 +182,47 @@ describe('TicketListComponent', () => {
     expect(updated).toBeDefined();
     expect(updated?.title).toBe('Updated Title');
   });
+
+  it('should filter tickets in real-time based on searchQuery signal', () => {
+    component.tickets.set([...mockTickets]);
+    expect(component.filteredTickets().length).toBe(2);
+
+    // Search by title keyword
+    component.searchQuery.set('styling');
+    expect(component.filteredTickets().length).toBe(1);
+    expect(component.filteredTickets()[0].title).toBe('Fix login button styling');
+
+    // Search by description keyword
+    component.searchQuery.set('copyright');
+    expect(component.filteredTickets().length).toBe(1);
+    expect(component.filteredTickets()[0].title).toBe('Update documentation footer');
+
+    // Clear search
+    component.clearSearch();
+    expect(component.searchQuery()).toBe('');
+    expect(component.filteredTickets().length).toBe(2);
+  });
+
+  it('should update status and reload tickets when selectTab is called', () => {
+    component.selectTab('In Progress');
+    expect(component.selectedStatus).toBe('In Progress');
+    expect(ticketServiceSpy.getTickets).toHaveBeenCalledWith('In Progress');
+  });
+
+  it('should handle onQuickStatusChange and update ticket status directly', () => {
+    component.tickets.set([...mockTickets]);
+    component.selectedStatus = 'All';
+
+    component.onQuickStatusChange({
+      id: '100000000000000000000001',
+      status: 'Closed',
+    });
+
+    expect(ticketServiceSpy.updateTicket).toHaveBeenCalledWith('100000000000000000000001', {
+      status: 'Closed',
+    });
+    const updated = component.tickets().find((t) => t._id === '100000000000000000000001');
+    expect(updated?.status).toBe('Closed');
+  });
 });
+

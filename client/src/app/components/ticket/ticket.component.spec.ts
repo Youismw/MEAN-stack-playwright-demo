@@ -77,4 +77,22 @@ describe('TicketComponent', () => {
 
     expect(emittedTicket).toEqual(mockTicket);
   });
+
+  it('should emit statusChange event when quick status dropdown changes', () => {
+    let emittedChange: { id: string; status: any } | null = null;
+    component.statusChange.subscribe((change) => {
+      emittedChange = change;
+    });
+
+    const select = fixture.nativeElement.querySelector('[data-testid="ticket-quick-status"]') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    select.value = 'In Progress';
+    select.dispatchEvent(new Event('change'));
+
+    expect(emittedChange).toEqual({
+      id: '100000000000000000000001',
+      status: 'In Progress',
+    });
+  });
 });
+

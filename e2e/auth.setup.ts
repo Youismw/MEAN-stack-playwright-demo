@@ -24,7 +24,7 @@ setup('authenticate user 1 via UI and save storageState', async ({ page, request
 
   // 3. Log in through Angular UI
   await page.goto('/login');
-  await page.getByTestId('login-email').fill('qa.user@quicktix.test');
+  await page.getByTestId('login-email').fill('playwright.bot@quicktix.test');
   await page.getByTestId('login-password').fill('Passw0rd!test');
   await page.getByTestId('login-submit').click();
 

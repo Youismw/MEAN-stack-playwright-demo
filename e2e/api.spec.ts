@@ -15,10 +15,10 @@ test.describe('API Contract & Security Verification', () => {
   test("Test 9: API returns 400 on invalid payload and User 2's ticket returns 404 for User 1", async ({
     request,
   }) => {
-    // 1. Authenticate User 1
+    // 1. Authenticate Playwright bot
     const loginRes = await request.post('/api/auth/login', {
       data: {
-        email: 'qa.user@quicktix.test',
+        email: 'playwright.bot@quicktix.test',
         password: 'Passw0rd!test',
       },
     });

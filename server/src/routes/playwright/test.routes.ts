@@ -47,7 +47,10 @@ const router = Router();
 const SEED_PASSWORD_HASH = bcrypt.hashSync('Passw0rd!test', 4);
 
 // Deterministic ObjectIds defined in CONTRACT.md
+// USER_1_ID is reserved for the primary developer / QA user whose tickets persist.
 const USER_1_ID = new Types.ObjectId('000000000000000000000001');
+// Dedicated automated test runner bot for Playwright E2E isolation
+const PLAYWRIGHT_BOT_ID = new Types.ObjectId('000000000000000000000099');
 const USER_2_ID = new Types.ObjectId('000000000000000000000002');
 
 const TICKET_1_ID = new Types.ObjectId('100000000000000000000001');
@@ -74,15 +77,35 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
   }
 
   const executeReset = async () => {
-    // 1. Wipe collections across separated databases
-    await User.deleteMany({});
-    await Ticket.deleteMany({});
+    // 1. Wipe Playwright test tickets and baseline seeded ticket IDs
+    // Developer user (USER_1_ID) tickets and custom tickets are NEVER deleted.
+    await Ticket.deleteMany({
+      $or: [
+        { _id: { $in: [TICKET_1_ID, TICKET_2_ID, TICKET_3_ID, TICKET_4_ID, TICKET_5_ID] } },
+        { owner: { $in: [PLAYWRIGHT_BOT_ID, USER_2_ID] } },
+      ],
+    });
 
-    // 2. Seed Users into user database (port 27017)
-    const users = [
+    // 2. Ensure Developer User exists in user database without touching their tickets
+    await User.updateOne(
+      { _id: USER_1_ID },
       {
-        _id: USER_1_ID,
-        email: 'qa.user@quicktix.test',
+        $setOnInsert: {
+          _id: USER_1_ID,
+          email: 'qa.user@quicktix.test',
+          password: SEED_PASSWORD_HASH,
+          role: 'user',
+        },
+      },
+      { upsert: true }
+    );
+
+    // 3. Reset Playwright automated test users
+    await User.deleteMany({ _id: { $in: [PLAYWRIGHT_BOT_ID, USER_2_ID] } });
+    const testUsers = [
+      {
+        _id: PLAYWRIGHT_BOT_ID,
+        email: 'playwright.bot@quicktix.test',
         password: SEED_PASSWORD_HASH,
         role: 'user',
       },
@@ -93,9 +116,9 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         role: 'user',
       },
     ];
-    await User.insertMany(users);
+    await User.insertMany(testUsers);
 
-    // 3. Seed Tickets into backend/tickets database (port 27018)
+    // 4. Seed Playwright baseline Tickets into backend/tickets database
     // Fixed timestamps 1 day apart for deterministic sort order
     const baseDate = new Date();
     const tickets = [
@@ -105,7 +128,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         description: 'Login button alignment is off on mobile screens',
         priority: 'High',
         status: 'Open',
-        owner: USER_1_ID,
+        owner: PLAYWRIGHT_BOT_ID,
         createdAt: new Date(baseDate.getTime() - 3 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 3 * 24 * 60 * 60 * 1000),
       },
@@ -115,7 +138,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         description: 'Update copyright year in footer',
         priority: 'Low',
         status: 'Open',
-        owner: USER_1_ID,
+        owner: PLAYWRIGHT_BOT_ID,
         createdAt: new Date(baseDate.getTime() - 2 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 2 * 24 * 60 * 60 * 1000),
       },
@@ -125,7 +148,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         description: 'Memory grows steadily during load test',
         priority: 'Medium',
         status: 'In Progress',
-        owner: USER_1_ID,
+        owner: PLAYWRIGHT_BOT_ID,
         createdAt: new Date(baseDate.getTime() - 1 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 1 * 24 * 60 * 60 * 1000),
       },
@@ -135,7 +158,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         description: 'Configure automated daily MongoDB dumps',
         priority: 'Low',
         status: 'Resolved',
-        owner: USER_1_ID,
+        owner: PLAYWRIGHT_BOT_ID,
         createdAt: baseDate,
         updatedAt: baseDate,
       },
@@ -154,7 +177,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
 
     return {
       status: 'reset_complete',
-      users: users.map((u) => u._id.toString()),
+      users: [USER_1_ID.toString(), USER_2_ID.toString()],
       tickets: tickets.map((t) => t._id.toString()),
     };
   };

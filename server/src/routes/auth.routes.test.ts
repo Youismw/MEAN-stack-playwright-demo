@@ -1,12 +1,14 @@
+process.env.NODE_ENV = 'test';
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
-import { app } from '../app.js';
-import { connectDatabases, closeDatabases } from '../config/db.js';
-import { User } from '../models/User.js';
+
+const { app } = await import('../app.js');
+const { connectDatabases, closeDatabases, userDbConnection } = await import('../config/db.js');
+const { User } = await import('../models/User.js');
 
 describe('Auth Routes Unit Tests', () => {
   const secret = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
@@ -16,6 +18,10 @@ describe('Auth Routes Unit Tests', () => {
 
   before(async () => {
     await connectDatabases();
+    // CRITICAL GUARD: Refuse to execute or delete records unless connected to a test database
+    if (!userDbConnection.name || !userDbConnection.name.endsWith('_test')) {
+      throw new Error(`CRITICAL GUARD: Refusing to wipe non-test database: '${userDbConnection.name}'`);
+    }
     await User.deleteMany({});
     await User.create({
       _id: testUserId,
@@ -86,5 +92,48 @@ describe('Auth Routes Unit Tests', () => {
 
     // Rate-limit headers present
     assert.ok(res.headers['ratelimit-limit'], 'Rate limit header should be present');
+  });
+
+  it('should successfully register a new user and return 201 with JWT', async () => {
+    const newEmail = 'new.registered.user@quicktix.test';
+    const newPass = 'ValidPass123!';
+
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: newEmail, password: newPass });
+
+    assert.equal(res.status, 201);
+    assert.ok(res.body.token, 'Should return token');
+    assert.equal(res.body.message, 'Account created successfully');
+
+    const decoded: any = jwt.verify(res.body.token, secret, { algorithms: ['HS256'] });
+    assert.equal(decoded.email, newEmail);
+
+    // Verify user can now log in
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: newEmail, password: newPass });
+    assert.equal(loginRes.status, 200);
+  });
+
+  it('should reject registration with existing email with 409 Conflict', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: testEmail, password: 'AnotherPass123!' });
+
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'Conflict');
+  });
+
+  it('should reject registration with invalid email or short password with 400', async () => {
+    const resShort = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'valid@quicktix.test', password: '123' });
+    assert.equal(resShort.status, 400);
+
+    const resBadEmail = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'not-an-email', password: 'ValidPassword123' });
+    assert.equal(resBadEmail.status, 400);
   });
 });

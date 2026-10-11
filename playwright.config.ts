@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const testPort = process.env.TEST_PORT || '3001';
+const testBaseUrl = `http://localhost:${testPort}`;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -14,20 +17,20 @@ export default defineConfig({
     ['junit', { outputFile: 'results/junit.xml' }],
   ],
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL || testBaseUrl,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   webServer: {
     command: 'npm start --prefix server',
-    url: 'http://localhost:3000/api/health',
+    url: `${testBaseUrl}/api/health`,
     reuseExistingServer: !process.env.CI,
     env: {
       NODE_ENV: 'test',
-      PORT: '3000',
+      PORT: testPort,
       MONGO_USERS_URI: process.env.MONGO_USERS_URI || 'mongodb://localhost:27017/quicktix_users_test',
-      MONGO_TICKETS_URI: process.env.MONGO_TICKETS_URI || 'mongodb://localhost:27017/quicktix_tickets_test',
+      MONGO_TICKETS_URI: process.env.MONGO_TICKETS_URI || 'mongodb://localhost:27018/quicktix_tickets_test',
       MONGO_URI: process.env.MONGO_URI || 'mongodb://localhost:27017/quicktix_test',
       JWT_SECRET: process.env.JWT_SECRET || 'test-only-secret',
     },

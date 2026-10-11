@@ -56,6 +56,7 @@ export class LoginComponent implements OnInit {
   password = '';
 
   // Reactive Signals for UI state
+  isLoginMode = signal(true);
   errorMessage = signal('');
   loading = signal(false);
 
@@ -69,13 +70,29 @@ export class LoginComponent implements OnInit {
     // If the user already has an active session, skip login view entirely
     if (this.authService.isAuthenticated()) {
       this.router.navigate(['/tickets']);
+      return;
     }
+
+    // Support direct navigation to /register
+    if (this.router.url?.includes('/register')) {
+      this.isLoginMode.set(false);
+    }
+  }
+
+  /**
+   * Switches between Sign In and Create Account modes.
+   */
+  setMode(login: boolean): void {
+    this.isLoginMode.set(login);
+    this.errorMessage.set('');
+    this.cdr.markForCheck();
   }
 
   /**
    * Helper action for development and manual QA testing to populate demo credentials.
    */
   fillDemoCredentials(): void {
+    this.isLoginMode.set(true);
     this.email = 'qa.user@quicktix.test';
     this.password = 'Passw0rd!test';
     this.errorMessage.set('');
@@ -83,7 +100,7 @@ export class LoginComponent implements OnInit {
   }
 
   /**
-   * Submits user credentials to AuthService.
+   * Submits user credentials to AuthService (login or register based on active mode).
    */
   onSubmit(): void {
     this.errorMessage.set('');
@@ -93,8 +110,25 @@ export class LoginComponent implements OnInit {
     const cleanEmail = this.email.trim();
     const cleanPassword = this.password.trim();
 
-    this.authService
-      .login(cleanEmail, cleanPassword)
+    if (!cleanEmail) {
+      this.loading.set(false);
+      this.errorMessage.set('Please enter your email address');
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (!this.isLoginMode() && cleanPassword.length < 6) {
+      this.loading.set(false);
+      this.errorMessage.set('Password must be at least 6 characters long');
+      this.cdr.markForCheck();
+      return;
+    }
+
+    const authObservable = this.isLoginMode()
+      ? this.authService.login(cleanEmail, cleanPassword)
+      : this.authService.register(cleanEmail, cleanPassword);
+
+    authObservable
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
@@ -108,8 +142,13 @@ export class LoginComponent implements OnInit {
           // Extract specific message from backend response or provide clear fallback
           if (err.status === 401) {
             this.errorMessage.set(err.error?.message || 'Invalid email or password');
+          } else if (err.status === 409) {
+            this.errorMessage.set(err.error?.message || 'An account with this email already exists');
           } else {
-            this.errorMessage.set(err.error?.message || 'Failed to sign in. Please try again.');
+            const fallback = this.isLoginMode()
+              ? 'Failed to sign in. Please try again.'
+              : 'Failed to create account. Please try again.';
+            this.errorMessage.set(err.error?.message || fallback);
           }
           this.cdr.markForCheck();
         },
