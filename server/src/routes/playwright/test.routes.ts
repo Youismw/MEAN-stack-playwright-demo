@@ -2,8 +2,10 @@
  * ============================================================================
  * FOLDER: server/src/routes/playwright/
  * ============================================================================
- * Test Support Infrastructure: Contains endpoints that assist end-to-end
- * browser automation tests running under Playwright.
+ * NOTE: This folder contains backend APPLICATION ROUTING CODE that supports
+ * Playwright E2E browser automation (e.g. database resets and seeding).
+ * It is NOT a test suite folder. Actual unit tests reside alongside source
+ * files, and E2E/taxonomy suites reside in the root `playwright/` directory.
  *
  * ============================================================================
  * MODULE: server/src/routes/playwright/test.routes.ts (E2E Test State Resetter)

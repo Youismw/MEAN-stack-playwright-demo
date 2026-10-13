@@ -21,14 +21,26 @@ QuickTix operates under a **Single-Process Production Model**:
 quicktix/
 ├─ client/                       # Angular standalone client application
 ├─ server/                       # Express 5 + Node.js + Mongoose backend
-├─ e2e/                          # Playwright test suite & auth fixtures
+│  ├─ playwright.config.ts       # Server unit test Playwright config
+│  └─ src/                       # Backend code & unit tests (*.test.ts)
+├─ playwright/                   # Playwright testing taxonomy suite
+│  ├─ 00-setup/                  # Auth storageState setup
+│  ├─ 01-functional/             # Positive, Negative, Validation, Error, Business logic
+│  ├─ 02-ui-browser/             # Navigation, Keyboard/focus, Responsive, Accessibility
+│  ├─ 03-integration-api/        # REST & Auth contracts
+│  ├─ 04-e2e/                    # Lifecycle & Multi-user isolation journeys
+│  ├─ 05-security/               # XSS, IDOR authorization, Rate-limiting
+│  ├─ 06-performance/            # Web vitals, TTFB, API latency SLAs
+│  ├─ 07-resilience/             # Network chaos, 500 fault injection, Concurrency
+│  ├─ 08-specialized/            # Metadata, SEO, and usability
+│  └─ fixtures/                  # Deterministic autoReset fixtures & mock data
 ├─ .auth/                        # Stored storageState (user.json)
 ├─ .github/
 │  ├─ workflows/ci.yml           # GitHub Actions workflow (E2E + Pages)
 │  └─ dependabot.yml             # Automated dependency updates
 ├─ CONTRACT.md                   # Authoritative contract & testid specification
-├─ playwright.config.ts          # Playwright runner configuration (workers: 1)
-├─ package.json                  # Root runner & Playwright scripts
+├─ playwright.config.ts          # Playwright root taxonomy runner configuration
+├─ package.json                  # Root runner & taxonomy test scripts
 └─ tsconfig.json                 # Root TypeScript definitions
 ```
 
@@ -116,17 +128,28 @@ Navigate to **`http://localhost:3000`** in your browser.
 ## 🚦 Executing Playwright Tests
 
 ```powershell
-# Run the complete E2E test suite (10 tests)
+# Run the complete Playwright taxonomy suite
 npm run test:e2e
 
-# Run fast smoke tests only (4 tests)
+# Run backend unit tests via Playwright (31 tests in ~3s)
+npm run test:server
+
+# Run frontend unit tests via Angular CLI (54 tests)
+npm run test:client
+
+# Run fast smoke tests (@smoke tag)
 npm run test:smoke
+
+# Run specific taxonomy slices
+npm run test:functional    # Positive, Negative, Validation, Error, Business logic
+npm run test:ui-browser    # Responsive, Navigation, Keyboard, Accessibility
+npm run test:api           # REST API & Token contract tests
+npm run test:security      # Injection (XSS), IDOR, and Rate-limiting
+npm run test:perf          # Navigation timing & SLA latency checks
+npm run test:resilience    # Network abort, 500 fault injection, Concurrency
 
 # Run Playwright in interactive UI mode
 npm run test:ui
-
-# Run tests in headed browser mode
-npx playwright test --headed
 
 # Open the latest HTML test report
 npx playwright show-report

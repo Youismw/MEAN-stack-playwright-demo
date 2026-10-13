@@ -138,6 +138,13 @@ export const ticketDbConnection: Connection = mongoose.createConnection(ticketsU
  *   - Queried by `server/src/routes/health.routes.ts` to check `readyState === 1`.
  */
 export async function connectDatabases(): Promise<{ userDb: Connection; ticketDb: Connection }> {
+  const { usersUri: uUri, ticketsUri: tUri } = resolveDatabaseUris();
+  if (userDbConnection.readyState !== 1 && userDbConnection.readyState !== 2) {
+    userDbConnection.openUri(uUri);
+  }
+  if (ticketDbConnection.readyState !== 1 && ticketDbConnection.readyState !== 2) {
+    ticketDbConnection.openUri(tUri);
+  }
   await Promise.all([
     userDbConnection.asPromise(),
     ticketDbConnection.asPromise(),

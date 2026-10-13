@@ -1,19 +1,15 @@
-import { describe, it, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from '@playwright/test';
 import request from 'supertest';
 import { app } from '../app.js';
 import { connectDatabases, closeDatabases } from '../config/db.js';
 
-describe('Health Routes Unit / Integration Tests', () => {
-  after(async () => {
-    await closeDatabases();
-  });
+test.describe('Health Routes Unit / Integration Tests', () => {
 
-  it('should return 200 { status: "ok", mongo: "connected" } when databases are connected', async () => {
+  test('should return 200 { status: "ok", mongo: "connected" } when databases are connected', async () => {
     await connectDatabases();
 
     const res = await request(app).get('/api/health');
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { status: 'ok', mongo: 'connected' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ok', mongo: 'connected' });
   });
 });

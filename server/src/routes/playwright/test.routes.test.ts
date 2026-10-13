@@ -1,29 +1,30 @@
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert/strict';
+/**
+ * Unit / Integration test for the Playwright support route: POST /api/test/reset
+ * Note: Located alongside server/src/routes/playwright/test.routes.ts
+ */
+import { test, expect } from '@playwright/test';
 import request from 'supertest';
 
 process.env.NODE_ENV = 'test';
 const { app } = await import('../../app.js');
 const { connectDatabases, closeDatabases } = await import('../../config/db.js');
 
-describe('Test Routes Integration Tests', () => {
-  before(async () => {
+test.describe('Test Routes Integration Tests', () => {
+  test.beforeAll(async () => {
     await connectDatabases();
   });
 
-  after(async () => {
-    await closeDatabases();
-  });
 
-  it('should reset database and return seeded counts', async () => {
+
+  test('should reset database and return seeded counts', async () => {
     const res = await request(app).post('/api/test/reset');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'reset_complete');
-    assert.equal(res.body.users.length, 2);
-    assert.equal(res.body.tickets.length, 5);
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('reset_complete');
+    expect(res.body.users.length).toBe(2);
+    expect(res.body.tickets.length).toBe(5);
   });
 
-  it('should handle concurrent reset calls safely without duplicate key collisions', async () => {
+  test('should handle concurrent reset calls safely without duplicate key collisions', async () => {
     const concurrentRequests = [
       request(app).post('/api/test/reset'),
       request(app).post('/api/test/reset'),
@@ -32,8 +33,8 @@ describe('Test Routes Integration Tests', () => {
 
     const responses = await Promise.all(concurrentRequests);
     for (const res of responses) {
-      assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
-      assert.equal(res.body.status, 'reset_complete');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('reset_complete');
     }
   });
 });

@@ -1,25 +1,17 @@
-import { describe, it, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from '@playwright/test';
 import { resolveDatabaseUris, closeDatabases } from './db.js';
 
-describe('Database Separation & URI Resolution', () => {
-  after(async () => {
-    await closeDatabases();
-  });
+test.describe('Database Separation & URI Resolution', () => {
 
-  it('should resolve two completely separate databases for user and ticket services', () => {
+  test('should resolve two completely separate databases for user and ticket services', () => {
     const { usersUri, ticketsUri } = resolveDatabaseUris();
 
-    assert.ok(usersUri, 'usersUri must be defined');
-    assert.ok(ticketsUri, 'ticketsUri must be defined');
-    assert.notEqual(
-      usersUri,
-      ticketsUri,
-      'Architectural violation: user data and backend ticket data must never share the same database'
-    );
+    expect(usersUri).toBeTruthy();
+    expect(ticketsUri).toBeTruthy();
+    expect(usersUri).not.toBe(ticketsUri);
   });
 
-  it('should ensure database names end with _test in test environment', () => {
+  test('should ensure database names end with _test in test environment', () => {
     const originalEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'test';
 
@@ -27,19 +19,13 @@ describe('Database Separation & URI Resolution', () => {
     const userDbName = new URL(usersUri).pathname.replace(/^\//, '');
     const ticketDbName = new URL(ticketsUri).pathname.replace(/^\//, '');
 
-    assert.ok(
-      userDbName.endsWith('_test'),
-      `Expected user db name '${userDbName}' to end in '_test'`
-    );
-    assert.ok(
-      ticketDbName.endsWith('_test'),
-      `Expected ticket db name '${ticketDbName}' to end in '_test'`
-    );
+    expect(userDbName.endsWith('_test')).toBe(true);
+    expect(ticketDbName.endsWith('_test')).toBe(true);
 
     process.env.NODE_ENV = originalEnv;
   });
 
-  it('should prioritize explicit MONGO_USERS_URI and MONGO_TICKETS_URI when provided', () => {
+  test('should prioritize explicit MONGO_USERS_URI and MONGO_TICKETS_URI when provided', () => {
     const originalUsers = process.env.MONGO_USERS_URI;
     const originalTickets = process.env.MONGO_TICKETS_URI;
 
@@ -48,8 +34,8 @@ describe('Database Separation & URI Resolution', () => {
 
     const { usersUri, ticketsUri } = resolveDatabaseUris();
 
-    assert.equal(usersUri, 'mongodb://127.0.0.1:27017/custom_users_db_test');
-    assert.equal(ticketsUri, 'mongodb://127.0.0.1:27017/custom_tickets_db_test');
+    expect(usersUri).toBe('mongodb://127.0.0.1:27017/custom_users_db_test');
+    expect(ticketsUri).toBe('mongodb://127.0.0.1:27017/custom_tickets_db_test');
 
     if (originalUsers) process.env.MONGO_USERS_URI = originalUsers;
     else delete process.env.MONGO_USERS_URI;

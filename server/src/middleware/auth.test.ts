@@ -1,12 +1,11 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from '@playwright/test';
 import jwt from 'jsonwebtoken';
 import { authenticateToken } from './auth.js';
 
-describe('Auth Middleware Unit Tests', () => {
+test.describe('Auth Middleware Unit Tests', () => {
   const secret = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
 
-  it('should return 401 when Authorization header is missing', () => {
+  test('should return 401 when Authorization header is missing', () => {
     let statusCode = 0;
     let jsonBody: any = null;
 
@@ -28,15 +27,15 @@ describe('Auth Middleware Unit Tests', () => {
 
     authenticateToken(req, res, next);
 
-    assert.equal(statusCode, 401);
-    assert.deepEqual(jsonBody, {
+    expect(statusCode).toBe(401);
+    expect(jsonBody).toEqual({
       error: 'Unauthorized',
       message: 'Valid token required',
     });
-    assert.equal(nextCalled, false);
+    expect(nextCalled).toBe(false);
   });
 
-  it('should return 401 when Authorization header is not Bearer format', () => {
+  test('should return 401 when Authorization header is not Bearer format', () => {
     let statusCode = 0;
     let jsonBody: any = null;
 
@@ -58,15 +57,15 @@ describe('Auth Middleware Unit Tests', () => {
 
     authenticateToken(req, res, next);
 
-    assert.equal(statusCode, 401);
-    assert.deepEqual(jsonBody, {
+    expect(statusCode).toBe(401);
+    expect(jsonBody).toEqual({
       error: 'Unauthorized',
       message: 'Valid token required',
     });
-    assert.equal(nextCalled, false);
+    expect(nextCalled).toBe(false);
   });
 
-  it('should return 401 when token is invalid or expired', () => {
+  test('should return 401 when token is invalid or expired', () => {
     let statusCode = 0;
     let jsonBody: any = null;
 
@@ -88,15 +87,15 @@ describe('Auth Middleware Unit Tests', () => {
 
     authenticateToken(req, res, next);
 
-    assert.equal(statusCode, 401);
-    assert.deepEqual(jsonBody, {
+    expect(statusCode).toBe(401);
+    expect(jsonBody).toEqual({
       error: 'Unauthorized',
       message: 'Valid token required',
     });
-    assert.equal(nextCalled, false);
+    expect(nextCalled).toBe(false);
   });
 
-  it('should attach user payload to req and call next for valid JWT', () => {
+  test('should attach user payload to req and call next for valid JWT', () => {
     const payload = { id: '000000000000000000000001', email: 'qa.user@quicktix.test' };
     const validToken = jwt.sign(payload, secret, { expiresIn: '1h' });
 
@@ -109,12 +108,12 @@ describe('Auth Middleware Unit Tests', () => {
 
     authenticateToken(req, res, next);
 
-    assert.equal(nextCalled, true);
-    assert.equal(req.user.id, payload.id);
-    assert.equal(req.user.email, payload.email);
+    expect(nextCalled).toBe(true);
+    expect(req.user.id).toBe(payload.id);
+    expect(req.user.email).toBe(payload.email);
   });
 
-  it('should trim and accept Bearer token with extra spaces', () => {
+  test('should trim and accept Bearer token with extra spaces', () => {
     const payload = { id: '000000000000000000000001', email: 'qa.user@quicktix.test' };
     const validToken = jwt.sign(payload, secret, { algorithm: 'HS256', expiresIn: '1h' });
 
@@ -126,10 +125,10 @@ describe('Auth Middleware Unit Tests', () => {
     };
 
     authenticateToken(req, res, next);
-    assert.equal(nextCalled, true);
+    expect(nextCalled).toBe(true);
   });
 
-  it('should reject tokens with unauthorized algorithms (e.g. none)', () => {
+  test('should reject tokens with unauthorized algorithms (e.g. none)', () => {
     // Construct unsigned/none algorithm token
     const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
     const payload = Buffer.from(JSON.stringify({ id: '1', email: 'none@test.com' })).toString('base64url');
@@ -152,11 +151,11 @@ describe('Auth Middleware Unit Tests', () => {
     };
 
     authenticateToken(req, res, next);
-    assert.equal(statusCode, 401);
-    assert.equal(nextCalled, false);
+    expect(statusCode).toBe(401);
+    expect(nextCalled).toBe(false);
   });
 
-  it('should reject tokens with malformed or non-ObjectId user id with 401', () => {
+  test('should reject tokens with malformed or non-ObjectId user id with 401', () => {
     const invalidIdPayload = { id: 'not-a-valid-object-id', email: 'test@quicktix.test' };
     const token = jwt.sign(invalidIdPayload, secret, { algorithm: 'HS256', expiresIn: '1h' });
 
@@ -179,11 +178,11 @@ describe('Auth Middleware Unit Tests', () => {
     };
 
     authenticateToken(req, res, next);
-    assert.equal(statusCode, 401);
-    assert.deepEqual(jsonBody, {
+    expect(statusCode).toBe(401);
+    expect(jsonBody).toEqual({
       error: 'Unauthorized',
       message: 'Valid token required',
     });
-    assert.equal(nextCalled, false);
+    expect(nextCalled).toBe(false);
   });
 });

@@ -1,6 +1,5 @@
 process.env.NODE_ENV = 'test';
-import { describe, it, before, after } from 'node:test';
-import assert from 'node:assert/strict';
+import { test, expect } from '@playwright/test';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
@@ -9,7 +8,7 @@ const { app } = await import('../app.js');
 const { connectDatabases, closeDatabases, ticketDbConnection } = await import('../config/db.js');
 const { Ticket } = await import('../models/Ticket.js');
 
-describe('Ticket Routes Unit Tests', () => {
+test.describe('Ticket Routes Unit Tests', () => {
   const secret = process.env.JWT_SECRET || 'dev-only-secret-do-not-use-in-production';
   const user1Id = new Types.ObjectId('000000000000000000000001');
   const user2Id = new Types.ObjectId('000000000000000000000002');
@@ -28,7 +27,7 @@ describe('Ticket Routes Unit Tests', () => {
   let user1TicketId = '';
   let user2TicketId = '';
 
-  before(async () => {
+  test.beforeAll(async () => {
     await connectDatabases();
     // CRITICAL GUARD: Refuse to execute or delete records unless connected to a test database
     if (!ticketDbConnection.name || !ticketDbConnection.name.endsWith('_test')) {
@@ -55,58 +54,56 @@ describe('Ticket Routes Unit Tests', () => {
     user2TicketId = t2._id.toString();
   });
 
-  after(async () => {
-    await closeDatabases();
-  });
 
-  it('should reject unauthenticated requests with 401', async () => {
+
+  test('should reject unauthenticated requests with 401', async () => {
     const res = await request(app).get('/api/tickets');
-    assert.equal(res.status, 401);
-    assert.equal(res.body.error, 'Unauthorized');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Unauthorized');
   });
 
-  it('should list only tickets owned by authenticated user', async () => {
+  test('should list only tickets owned by authenticated user', async () => {
     const res = await request(app)
       .get('/api/tickets')
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(res.status, 200);
-    assert.ok(Array.isArray(res.body));
-    assert.equal(res.body.length, 1);
-    assert.equal(res.body[0].title, 'Fix header layout bug');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBe(1);
+    expect(res.body[0].title).toBe('Fix header layout bug');
   });
 
-  it('should return 400 when invalid status filter query is provided', async () => {
+  test('should return 400 when invalid status filter query is provided', async () => {
     const res = await request(app)
       .get('/api/tickets?status=invalid_status_value')
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'ValidationError');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ValidationError');
   });
 
-  it('should validate title length on creation (< 3 characters)', async () => {
+  test('should validate title length on creation (< 3 characters)', async () => {
     const res = await request(app)
       .post('/api/tickets')
       .set('Authorization', `Bearer ${tokenUser1}`)
       .send({ title: 'ab', priority: 'High' });
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'ValidationError');
-    assert.match(res.body.message, /Title must be between 3 and 100 characters/i);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ValidationError');
+    expect(res.body.message).toMatch(/Title must be between 3 and 100 characters/i);
   });
 
-  it('should validate priority enum value', async () => {
+  test('should validate priority enum value', async () => {
     const res = await request(app)
       .post('/api/tickets')
       .set('Authorization', `Bearer ${tokenUser1}`)
       .send({ title: 'Valid Title Here', priority: 'InvalidPriority' });
 
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'ValidationError');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('ValidationError');
   });
 
-  it('should create a ticket with 201 status code on valid payload', async () => {
+  test('should create a ticket with 201 status code on valid payload', async () => {
     const res = await request(app)
       .post('/api/tickets')
       .set('Authorization', `Bearer ${tokenUser1}`)
@@ -117,49 +114,49 @@ describe('Ticket Routes Unit Tests', () => {
         status: 'Open',
       });
 
-    assert.equal(res.status, 201);
-    assert.equal(res.body.title, 'New Feature Request');
-    assert.equal(res.body.owner, user1Id.toString());
+    expect(res.status).toBe(201);
+    expect(res.body.title).toBe('New Feature Request');
+    expect(res.body.owner).toBe(user1Id.toString());
   });
 
-  it('should isolate owners: User 1 fetching User 2 ticket returns 404', async () => {
+  test('should isolate owners: User 1 fetching User 2 ticket returns 404', async () => {
     const res = await request(app)
       .get(`/api/tickets/${user2TicketId}`)
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(res.status, 404);
-    assert.equal(res.body.error, 'NotFound');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('NotFound');
   });
 
-  it('should isolate owners: User 1 deleting User 2 ticket returns 404', async () => {
+  test('should isolate owners: User 1 deleting User 2 ticket returns 404', async () => {
     const res = await request(app)
       .delete(`/api/tickets/${user2TicketId}`)
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(res.status, 404);
+    expect(res.status).toBe(404);
   });
 
-  it('should update ticket status via PUT', async () => {
+  test('should update ticket status via PUT', async () => {
     const res = await request(app)
       .put(`/api/tickets/${user1TicketId}`)
       .set('Authorization', `Bearer ${tokenUser1}`)
       .send({ status: 'Resolved' });
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'Resolved');
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('Resolved');
   });
 
-  it('should delete ticket via DELETE', async () => {
+  test('should delete ticket via DELETE', async () => {
     const res = await request(app)
       .delete(`/api/tickets/${user1TicketId}`)
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(res.status, 204);
+    expect(res.status).toBe(204);
 
     const checkRes = await request(app)
       .get(`/api/tickets/${user1TicketId}`)
       .set('Authorization', `Bearer ${tokenUser1}`);
 
-    assert.equal(checkRes.status, 404);
+    expect(checkRes.status).toBe(404);
   });
 });
