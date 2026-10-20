@@ -13,9 +13,12 @@
  *   1. Token Storage: Saves and retrieves the JWT in `localStorage` under key `'token'`.
  *   2. Reactive Auth State: Exposes `currentUserToken` as an Angular Signal.
  *   3. Multi-Tab Synchronization: Listens to browser `storage` events so logging out
- *      in one tab immediately logs out all other open tabs.
- *   4. Login & Logout: Sends login requests to `/api/auth/login` and handles teardown.
- *   5. JWT Token Inspection: Base64 decodes the token payload in-browser to read
+ *      or user activity in one tab immediately syncs across all open tabs.
+ *   4. User Activity & Inactivity Timeout: Monitors interaction events (`mousedown`, `keydown`,
+ *      `scroll`, `touchstart`, `mousemove`) to keep active users signed in, while auto-logging out
+ *      idle sessions after 15 minutes of inactivity.
+ *   5. Login & Logout: Sends login requests to `/api/auth/login` and handles teardown.
+ *   6. JWT Token Inspection: Base64 decodes the token payload in-browser to read
  *      the user's email and verify the expiration timestamp (`exp`).
  *
  * COMMUNICATES WITH:
@@ -34,7 +37,7 @@
  * ============================================================================
  */
 
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, tap } from 'rxjs';
@@ -66,35 +69,136 @@ function decodeJwtPayload(token: string): { id?: string; email?: string; exp?: n
 @Injectable({
   providedIn: 'root',
 })
-export class AuthService {
+export class AuthService implements OnDestroy {
   private readonly tokenKey = 'token';
+  private readonly lastActivityKey = 'auth_last_activity';
+
+  // Configurable idle inactivity window (default: 15 minutes)
+  inactivityTimeoutMs: number = 15 * 60 * 1000;
+
   // Reactive Signal holding current active token string (or null if logged out)
   readonly currentUserToken = signal<string | null>(this.getToken());
+
   private tokenExpirationTimer: ReturnType<typeof setTimeout> | null = null;
+  private inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastActivityTimestamp = 0;
+  private userActivityListenersAttached = false;
+  private boundActivityListener: (() => void) | null = null;
 
   constructor(private http: HttpClient, private router: Router) {
     const initialToken = this.getToken();
-    if (initialToken) {
+    if (initialToken && !this.isTokenExpired(initialToken)) {
       this.scheduleAutoLogout(initialToken);
+      this.startInactivityTracker();
     }
 
-    // Cross-Tab Synchronization: if user logs out in another browser tab, log out here too
+    // Cross-Tab Synchronization: handles multi-tab logout and shared activity
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (event: StorageEvent) => {
         if (event.key === this.tokenKey) {
           this.currentUserToken.set(event.newValue);
           this.scheduleAutoLogout(event.newValue);
+          if (event.newValue && !this.isTokenExpired(event.newValue)) {
+            this.startInactivityTracker();
+          } else {
+            this.stopInactivityTracker();
+          }
           if (!event.newValue && !this.router.url.includes('/login')) {
             this.router.navigate(['/login']);
           }
+        } else if (event.key === this.lastActivityKey && event.newValue) {
+          // User was active in another tab: reset inactivity timer here as well
+          this.resetInactivityTimer();
         }
       });
     }
   }
 
+  ngOnDestroy(): void {
+    this.stopInactivityTracker();
+  }
+
+  /**
+   * Initializes user interaction event listeners and starts the inactivity countdown.
+   * Listens for mouse movements, clicks, keystrokes, touches, and scrolling.
+   */
+  startInactivityTracker(): void {
+    if (typeof window !== 'undefined' && !this.userActivityListenersAttached) {
+      this.boundActivityListener = () => this.recordUserActivity();
+      const events: (keyof WindowEventMap)[] = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+      events.forEach((event) => {
+        window.addEventListener(event, this.boundActivityListener!, { passive: true });
+      });
+      this.userActivityListenersAttached = true;
+    }
+
+    this.lastActivityTimestamp = Date.now();
+    this.resetInactivityTimer();
+  }
+
+  /**
+   * Resets the inactivity timer countdown. If the user remains idle for inactivityTimeoutMs,
+   * they are automatically logged out.
+   */
+  resetInactivityTimer(): void {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
+
+    const token = this.getToken();
+    if (!token || this.isTokenExpired(token)) return;
+
+    this.inactivityTimer = setTimeout(() => {
+      this.logout();
+    }, this.inactivityTimeoutMs);
+  }
+
+  /**
+   * Records user interaction and refreshes the idle timer.
+   * Throttled to at most once per 1000ms to avoid UI and localStorage overhead.
+   */
+  recordUserActivity(): void {
+    const token = this.getToken();
+    if (!token || this.isTokenExpired(token)) return;
+
+    const now = Date.now();
+    if (now - this.lastActivityTimestamp < 1000) return;
+    this.lastActivityTimestamp = now;
+
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(this.lastActivityKey, now.toString());
+      } catch {
+        // Ignore storage write errors (e.g. quota exceeded)
+      }
+    }
+
+    this.resetInactivityTimer();
+  }
+
+  /**
+   * Stops the inactivity timer and cleanly detaches window event listeners.
+   */
+  stopInactivityTracker(): void {
+    if (this.inactivityTimer) {
+      clearTimeout(this.inactivityTimer);
+      this.inactivityTimer = null;
+    }
+
+    if (typeof window !== 'undefined' && this.userActivityListenersAttached && this.boundActivityListener) {
+      const events: (keyof WindowEventMap)[] = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+      events.forEach((event) => {
+        window.removeEventListener(event, this.boundActivityListener!);
+      });
+      this.userActivityListenersAttached = false;
+      this.boundActivityListener = null;
+    }
+  }
+
   /**
    * Schedules an automatic logout timer based on the token's exp claim.
-   * Automatically logs out the user the moment their session expires while idle.
+   * Serves as an absolute security ceiling (e.g. token expired on backend).
    */
   scheduleAutoLogout(token: string | null): void {
     if (this.tokenExpirationTimer) {
@@ -120,7 +224,7 @@ export class AuthService {
 
   /**
    * Submits credentials to the backend login endpoint.
-   * On success, persists token to localStorage, arms auto-logout timer, and updates reactive signal.
+   * On success, persists token, starts inactivity tracker, and arms auto-logout timer.
    */
   login(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', { email, password }).pipe(
@@ -129,6 +233,7 @@ export class AuthService {
           localStorage.setItem(this.tokenKey, response.token);
           this.currentUserToken.set(response.token);
           this.scheduleAutoLogout(response.token);
+          this.startInactivityTracker();
         }
       })
     );
@@ -136,7 +241,7 @@ export class AuthService {
 
   /**
    * Registers a new account with the backend.
-   * On success, automatically persists token to localStorage, arms auto-logout timer, and signs in.
+   * On success, persists token, starts inactivity tracker, and signs in.
    */
   register(email: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/register', { email, password }).pipe(
@@ -145,20 +250,25 @@ export class AuthService {
           localStorage.setItem(this.tokenKey, response.token);
           this.currentUserToken.set(response.token);
           this.scheduleAutoLogout(response.token);
+          this.startInactivityTracker();
         }
       })
     );
   }
 
   /**
-   * Purges stored credentials, clears auto-logout timer, and redirects to login view.
+   * Purges stored credentials, clears all timers, removes event listeners, and redirects to login view.
    */
   logout(): void {
     if (this.tokenExpirationTimer) {
       clearTimeout(this.tokenExpirationTimer);
       this.tokenExpirationTimer = null;
     }
-    localStorage.removeItem(this.tokenKey);
+    this.stopInactivityTracker();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.tokenKey);
+      localStorage.removeItem(this.lastActivityKey);
+    }
     this.currentUserToken.set(null);
     this.router.navigate(['/login']);
   }
@@ -198,6 +308,7 @@ export class AuthService {
     const token = this.getToken();
     if (!token) return false;
     if (this.isTokenExpired(token)) {
+      this.stopInactivityTracker();
       localStorage.removeItem(this.tokenKey);
       this.currentUserToken.set(null);
       /**if not authenticated then redirect to login  */

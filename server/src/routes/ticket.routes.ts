@@ -26,7 +26,7 @@
  *
  * COMMUNICATES WITH:
  *   - `server/src/middleware/auth.ts`: Uses `authenticateToken` to populate `req.user`.
- *   - `server/src/models/Ticket.ts`: Performs CRUD on MongoDB Tickets DB (port 27018).
+ *   - `server/src/models/Ticket.ts`: Performs CRUD on tickets collection in MongoDB.
  *   - `client/src/app/services/ticket.service.ts`: Backend for all client ticket calls.
  * ============================================================================
  */
@@ -145,6 +145,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction): Pr
       priority: ticketPriority,
       status: ticketStatus,
       owner: new Types.ObjectId(req.user!.id),
+      ownerEmail: req.user?.email || '',
     });
 
     const savedTicket = await newTicket.save();

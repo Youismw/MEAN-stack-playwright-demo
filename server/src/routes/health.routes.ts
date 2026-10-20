@@ -10,10 +10,9 @@
  * ============================================================================
  * WHAT THIS MODULE DOES:
  * Exposes an unauthenticated endpoint: `GET /api/health`.
- * Inspects the socket connectivity (`readyState === 1`) of BOTH Mongoose database
- * connection pools:
- *   - `userDbConnection`   (Users DB on port 27017)
- *   - `ticketDbConnection` (Tickets DB on port 27018)
+ * Inspects the socket connectivity (`readyState === 1`) of the Mongoose database
+ * connection:
+ *   - `mainDbConnection` (MongoDB on port 27017)
  *
  * COMMUNICATES WITH:
  *   - Mounted by `server/src/app.ts` under prefix `/api` -> `/api/health`.
@@ -33,23 +32,19 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { userDbConnection, ticketDbConnection } from '../config/db.js';
+import { mainDbConnection } from '../config/db.js';
 
 const router = Router();
 
 // GET /api/health
 router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   // readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
-  const isUserDbConnected = userDbConnection.readyState === 1;
-  const isTicketDbConnected = ticketDbConnection.readyState === 1;
+  const isMainDbConnected = mainDbConnection.readyState === 1;
 
-  if (isUserDbConnected && isTicketDbConnected) {
+  if (isMainDbConnected) {
     try {
-      // Actively ping both MongoDB connections to ensure server is actively responding
-      await Promise.all([
-        userDbConnection.db?.admin().ping(),
-        ticketDbConnection.db?.admin().ping(),
-      ]);
+      // Actively ping MongoDB connection to ensure server is actively responding
+      await mainDbConnection.db?.admin().ping();
       res.status(200).json({ status: 'ok', mongo: 'connected' });
       return;
     } catch {
@@ -61,8 +56,7 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
     status: 'error',
     mongo: 'disconnected',
     details: {
-      usersDb: isUserDbConnected ? 'connected' : 'disconnected',
-      ticketsDb: isTicketDbConnected ? 'connected' : 'disconnected',
+      mainDb: isMainDbConnected ? 'connected' : 'disconnected',
     },
   });
 });

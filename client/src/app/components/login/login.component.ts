@@ -89,14 +89,18 @@ export class LoginComponent implements OnInit {
   }
 
   /**
-   * Helper action for development and manual QA testing to populate demo credentials.
+   * Helper action for development and manual QA testing to populate demo credentials
+   * and optionally sign in automatically.
    */
-  fillDemoCredentials(): void {
+  fillDemoCredentials(autoSubmit: boolean = false): void {
     this.isLoginMode.set(true);
     this.email = 'qa.user@quicktix.test';
     this.password = 'Passw0rd!test';
     this.errorMessage.set('');
     this.cdr.markForCheck();
+    if (autoSubmit) {
+      this.onSubmit();
+    }
   }
 
   /**

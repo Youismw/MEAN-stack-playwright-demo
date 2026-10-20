@@ -29,7 +29,7 @@
  */
 
 import { Schema, Document, Types } from 'mongoose';
-import { userDbConnection } from '../config/db.js';
+import { mainDbConnection } from '../config/db.js';
 
 // TypeScript representation of a User document
 export interface IUser extends Document {
@@ -66,5 +66,5 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Compile the model on the isolated userDbConnection (MongoDB Users DB)
-export const User = userDbConnection.model<IUser>('User', userSchema);
+// Compile the model on mainDbConnection (MongoDB collection: 'users')
+export const User = mainDbConnection.model<IUser>('User', userSchema);

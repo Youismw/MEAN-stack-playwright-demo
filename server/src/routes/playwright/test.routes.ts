@@ -41,7 +41,7 @@ import { Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { User } from '../../models/User.js';
 import { Ticket } from '../../models/Ticket.js';
-import { userDbConnection, ticketDbConnection } from '../../config/db.js';
+import { mainDbConnection } from '../../config/db.js';
 
 const router = Router();
 
@@ -66,14 +66,13 @@ let resetLock: Promise<any> = Promise.resolve();
 
 // POST /api/test/reset
 router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
-  // Safety guard: refuse to wipe unless both database names end in _test
-  const userDbName = userDbConnection.name || '';
-  const ticketDbName = ticketDbConnection.name || '';
+  // Safety guard: refuse to wipe unless database name ends in _test
+  const dbName = mainDbConnection.name || '';
 
-  if (!userDbName.endsWith('_test') || !ticketDbName.endsWith('_test')) {
+  if (!dbName.endsWith('_test')) {
     res.status(403).json({
       error: 'Forbidden',
-      message: `Reset refused: database '${userDbName}' or '${ticketDbName}' does not end in '_test'`,
+      message: `Reset refused: database '${dbName}' does not end in '_test'`,
     });
     return;
   }
@@ -131,6 +130,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         priority: 'High',
         status: 'Open',
         owner: PLAYWRIGHT_BOT_ID,
+        ownerEmail: 'playwright.bot@quicktix.test',
         createdAt: new Date(baseDate.getTime() - 3 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 3 * 24 * 60 * 60 * 1000),
       },
@@ -141,6 +141,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         priority: 'Low',
         status: 'Open',
         owner: PLAYWRIGHT_BOT_ID,
+        ownerEmail: 'playwright.bot@quicktix.test',
         createdAt: new Date(baseDate.getTime() - 2 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 2 * 24 * 60 * 60 * 1000),
       },
@@ -151,6 +152,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         priority: 'Medium',
         status: 'In Progress',
         owner: PLAYWRIGHT_BOT_ID,
+        ownerEmail: 'playwright.bot@quicktix.test',
         createdAt: new Date(baseDate.getTime() - 1 * 24 * 60 * 60 * 1000),
         updatedAt: new Date(baseDate.getTime() - 1 * 24 * 60 * 60 * 1000),
       },
@@ -161,6 +163,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         priority: 'Low',
         status: 'Resolved',
         owner: PLAYWRIGHT_BOT_ID,
+        ownerEmail: 'playwright.bot@quicktix.test',
         createdAt: baseDate,
         updatedAt: baseDate,
       },
@@ -171,6 +174,7 @@ router.post('/reset', async (_req: Request, res: Response): Promise<void> => {
         priority: 'Urgent',
         status: 'Open',
         owner: USER_2_ID,
+        ownerEmail: 'other.user@quicktix.test',
         createdAt: baseDate,
         updatedAt: baseDate,
       },

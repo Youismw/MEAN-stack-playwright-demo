@@ -1,0 +1,20 @@
+npm start --prefix server
+
+
+npm run test:smoke
+
+
+
+npm run test:ui
+
+
+
+
+npm run test:e2e
+
+
+
+npx playwright show-report
+
+
+C:\Users\ROHIT CHAUHAN\AppData\Local\Programs\mongosh\mongosh.exe

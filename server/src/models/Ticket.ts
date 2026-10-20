@@ -10,11 +10,10 @@
  * ============================================================================
  * WHAT THIS MODULE DOES:
  * Defines the schema, validation rules, indexes, and TypeScript types for
- * Support Tickets. It compiles the model on `ticketDbConnection` (MongoDB Tickets
- * DB on port 27018), enforcing domain separation from the Users DB.
+ * Support Tickets. It compiles the model on `mainDbConnection` (MongoDB collection: 'tickets').
  *
  * COMMUNICATES WITH:
- *   - `server/src/config/db.ts`: Imports `ticketDbConnection` to bind the model.
+ *   - `server/src/config/db.ts`: Imports `mainDbConnection` to bind the model.
  *   - `server/src/routes/ticket.routes.ts`: Used for all ticket CRUD operations
  *     (Ticket.find, Ticket.findOne, Ticket.create, Ticket.findByIdAndDelete).
  *   - `server/src/routes/playwright/test.routes.ts`: Used to wipe and seed test tickets.
@@ -27,14 +26,14 @@
  *      - priority is one of: 'Low' | 'Medium' | 'High' | 'Urgent'.
  *      - status is one of: 'Open' | 'In Progress' | 'Resolved' | 'Closed'.
  *      - owner ObjectId is provided.
- *   4. Writes the document to the tickets collection in MongoDB Tickets DB (port 27018).
+ *   4. Writes the document to the tickets collection in MongoDB.
  *   5. The compound index `{ owner: 1, createdAt: -1 }` accelerates queries when
  *      users view their ticket stream sorted by newest first.
  * ============================================================================
  */
 
 import { Schema, Document, Types } from 'mongoose';
-import { ticketDbConnection } from '../config/db.js';
+import { mainDbConnection } from '../config/db.js';
 
 // Domain union types representing strict allowable states
 export type TicketPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
@@ -48,6 +47,7 @@ export interface ITicket extends Document {
   priority: TicketPriority;
   status: TicketStatus;
   owner: Types.ObjectId; // References the User ObjectId who created this ticket
+  ownerEmail?: string;  // Visual user email identifier in MongoDB Compass
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +91,11 @@ const ticketSchema = new Schema<ITicket>(
       required: true,
       index: true,
     },
+    ownerEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+    },
   },
   {
     timestamps: true, // Automatically manages createdAt and updatedAt timestamps
@@ -100,5 +105,5 @@ const ticketSchema = new Schema<ITicket>(
 // Compound index to optimize queries fetching a user's tickets ordered by creation time
 ticketSchema.index({ owner: 1, createdAt: -1 });
 
-// Compile the model on the isolated ticketDbConnection (MongoDB Tickets DB on port 27018)
-export const Ticket = ticketDbConnection.model<ITicket>('Ticket', ticketSchema);
+// Compile the model on mainDbConnection (MongoDB collection: 'tickets')
+export const Ticket = mainDbConnection.model<ITicket>('Ticket', ticketSchema);

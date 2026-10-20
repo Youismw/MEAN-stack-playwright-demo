@@ -49,6 +49,7 @@ export interface Ticket {
   priority: TicketPriority;
   status: TicketStatus;
   owner?: string;
+  ownerEmail?: string;
   createdAt: string;
   updatedAt: string;
 }

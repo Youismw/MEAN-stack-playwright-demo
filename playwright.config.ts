@@ -29,15 +29,14 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       PORT: testPort,
-      MONGO_USERS_URI: process.env.MONGO_USERS_URI || 'mongodb://localhost:27017/quicktix_users_test',
-      MONGO_TICKETS_URI: process.env.MONGO_TICKETS_URI || 'mongodb://localhost:27018/quicktix_tickets_test',
+      MONGO_URI: process.env.MONGO_URI || 'mongodb://localhost:27017/quicktix_test',
       JWT_SECRET: process.env.JWT_SECRET || 'test-only-secret',
     },
   },
   projects: [
     {
       name: 'setup',
-      testMatch: /00-setup\/auth\.setup\.ts/,
+      testMatch: /(00-setup|auth\.setup)\/auth\.setup\.ts/,
     },
     {
       name: 'chromium',

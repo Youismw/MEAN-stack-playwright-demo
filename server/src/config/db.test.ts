@@ -1,46 +1,55 @@
 import { test, expect } from '@playwright/test';
-import { resolveDatabaseUris, closeDatabases } from './db.js';
+import { resolveDatabaseUri, resolveDatabaseUris, mainDbConnection, closeDatabases } from './db.js';
 
-test.describe('Database Separation & URI Resolution', () => {
+test.describe('Database Isolation & URI Resolution', () => {
 
-  test('should resolve two completely separate databases for user and ticket services', () => {
-    const { usersUri, ticketsUri } = resolveDatabaseUris();
+  test('should resolve unified main database and isolate dev vs test environments', () => {
+    const originalEnv = process.env.NODE_ENV;
 
-    expect(usersUri).toBeTruthy();
-    expect(ticketsUri).toBeTruthy();
-    expect(usersUri).not.toBe(ticketsUri);
+    process.env.NODE_ENV = 'development';
+    const devUri = resolveDatabaseUri();
+    const devDbName = new URL(devUri).pathname.replace(/^\//, '');
+    expect(devDbName).toBe('quicktix_dev');
+
+    process.env.NODE_ENV = 'test';
+    const testUri = resolveDatabaseUri();
+    const testDbName = new URL(testUri).pathname.replace(/^\//, '');
+    expect(testDbName).toBe('quicktix_test');
+
+    expect(devUri).not.toBe(testUri);
+    process.env.NODE_ENV = originalEnv;
   });
 
-  test('should ensure database names end with _test in test environment', () => {
+  test('should ensure database name ends with _test in test environment', () => {
     const originalEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'test';
 
-    const { usersUri, ticketsUri } = resolveDatabaseUris();
-    const userDbName = new URL(usersUri).pathname.replace(/^\//, '');
-    const ticketDbName = new URL(ticketsUri).pathname.replace(/^\//, '');
+    const testUri = resolveDatabaseUri();
+    const testDbName = new URL(testUri).pathname.replace(/^\//, '');
 
-    expect(userDbName.endsWith('_test')).toBe(true);
-    expect(ticketDbName.endsWith('_test')).toBe(true);
+    expect(testDbName.endsWith('_test')).toBe(true);
 
     process.env.NODE_ENV = originalEnv;
   });
 
-  test('should prioritize explicit MONGO_USERS_URI and MONGO_TICKETS_URI when provided', () => {
-    const originalUsers = process.env.MONGO_USERS_URI;
-    const originalTickets = process.env.MONGO_TICKETS_URI;
+  test('should prioritize explicit MONGO_URI when provided', () => {
+    const originalEnv = process.env.NODE_ENV;
+    const originalMongoUri = process.env.MONGO_URI;
 
-    process.env.MONGO_USERS_URI = 'mongodb://127.0.0.1:27017/custom_users_db_test';
-    process.env.MONGO_TICKETS_URI = 'mongodb://127.0.0.1:27017/custom_tickets_db_test';
+    process.env.NODE_ENV = 'test';
+    process.env.MONGO_URI = 'mongodb://127.0.0.1:27017/custom_unified_db_test';
 
-    const { usersUri, ticketsUri } = resolveDatabaseUris();
+    const resolvedUri = resolveDatabaseUri();
+    expect(resolvedUri).toBe('mongodb://127.0.0.1:27017/custom_unified_db_test');
 
-    expect(usersUri).toBe('mongodb://127.0.0.1:27017/custom_users_db_test');
-    expect(ticketsUri).toBe('mongodb://127.0.0.1:27017/custom_tickets_db_test');
+    if (originalMongoUri) process.env.MONGO_URI = originalMongoUri;
+    else delete process.env.MONGO_URI;
+    process.env.NODE_ENV = originalEnv;
+  });
 
-    if (originalUsers) process.env.MONGO_USERS_URI = originalUsers;
-    else delete process.env.MONGO_USERS_URI;
-
-    if (originalTickets) process.env.MONGO_TICKETS_URI = originalTickets;
-    else delete process.env.MONGO_TICKETS_URI;
+  test('should export mainDbConnection instance', () => {
+    expect(mainDbConnection).toBeTruthy();
+    expect(typeof mainDbConnection.model).toBe('function');
+    expect(typeof mainDbConnection.close).toBe('function');
   });
 });

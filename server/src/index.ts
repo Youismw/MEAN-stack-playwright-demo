@@ -14,7 +14,7 @@
  * It is responsible for orchestrating the server startup lifecycle:
  *   1. Loading environment variables from .env via dotenv.
  *   2. Validating environment configurations (e.g., JWT secret & production builds).
- *   3. Connecting to the two separate MongoDB database clusters via config/db.ts.
+ *   3. Connecting to MongoDB via config/db.ts.
  *   4. Starting the Express HTTP server on the designated PORT (default 3000).
  *   5. Registering graceful shutdown listeners (SIGINT / SIGTERM) to close DB
  *      connections safely when the process stops.
@@ -24,11 +24,10 @@
  *   - Step 2: ES Module imports pull in `app.ts` (Express instance) and `config/db.ts`.
  *   - Step 3: dotenv checks if `../../.env` exists in the workspace root and injects
  *     variables like PORT, NODE_ENV, and Mongo URIs into `process.env`.
- *   - Step 4: `startServer()` executes. It calls `resolveDatabaseUris()` and
- *     `connectDatabases()` from `config/db.ts`. Mongoose establishes connections to:
- *       - Users DB (port 27017)
- *       - Tickets DB (port 27018)
- *   - Step 5: After both DB connections resolve, `app.listen(PORT)` opens TCP port 3000.
+ *   - Step 4: `startServer()` executes. It calls `resolveDatabaseUri()` and
+ *     `connectDatabases()` from `config/db.ts`. Mongoose establishes connection to:
+ *       - MongoDB (port 27017, housing users & tickets collections)
+ *   - Step 5: After DB connection resolves, `app.listen(PORT)` opens TCP port 3000.
  *   - Step 6: The server is now ready to receive incoming HTTP requests from the frontend
  *     or automated Playwright tests.
  *   - Step 7: On `Ctrl+C` (SIGINT), `gracefulShutdown` closes the HTTP server and calls
@@ -44,9 +43,8 @@ import { app, clientDist } from './app.js';
 import {
   connectDatabases,
   closeDatabases,
-  resolveDatabaseUris,
-  userDbConnection,
-  ticketDbConnection,
+  resolveDatabaseUri,
+  mainDbConnection,
 } from './config/db.js';
 
 // Resolve directory paths in ES Module environment (__dirname is not native in ESM)
@@ -94,15 +92,13 @@ if (NODE_ENV === 'production') {
 // ----------------------------------------------------------------------------
 async function startServer(): Promise<void> {
   try {
-    // Determine database URIs based on NODE_ENV (dev vs test databases)
-    const { usersUri, ticketsUri } = resolveDatabaseUris();
-    console.log(`Connecting to MongoDB Users DB at '${usersUri}'...`);
-    console.log(`Connecting to MongoDB Tickets DB at '${ticketsUri}'...`);
+    // Determine database URI based on NODE_ENV (dev vs test database)
+    const mainUri = resolveDatabaseUri();
+    console.log(`Connecting to MongoDB Main DB at '${mainUri}'...`);
 
-    // Await database connection promises before opening the network port to prevent
-    // race conditions where incoming HTTP requests query an unready MongoDB socket.
+    // Await database connection promise before opening network port
     await connectDatabases();
-    console.log(`MongoDB connected successfully [Users: '${userDbConnection.name}', Tickets: '${ticketDbConnection.name}']`);
+    console.log(`MongoDB connected successfully [Database: '${mainDbConnection.name}']`);
 
     // Start listening on TCP port (e.g., 3000)
     const server = app.listen(PORT, () => {

@@ -107,4 +107,86 @@ describe('AuthService', () => {
 
     vi.useRealTimers();
   });
+
+  it('should automatically log out after inactivity timeout when user is idle', () => {
+    vi.useFakeTimers();
+    const futureExp = Math.floor(Date.now() / 1000) + 7200;
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(JSON.stringify({ id: '1', email: 'user@test.com', exp: futureExp }));
+    const validJwt = `${header}.${payload}.signature`;
+
+    localStorage.setItem('token', validJwt);
+    service.currentUserToken.set(validJwt);
+    service.inactivityTimeoutMs = 10000;
+    service.startInactivityTracker();
+
+    // Advance by 11 seconds without any activity
+    vi.advanceTimersByTime(11000);
+
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(service.currentUserToken()).toBeNull();
+    expect(routerSpy.navigate).toHaveBeenCalledWith(['/login']);
+
+    vi.useRealTimers();
+  });
+
+  it('should NOT log out when active user interactions keep resetting the inactivity timer', () => {
+    vi.useFakeTimers();
+    const futureExp = Math.floor(Date.now() / 1000) + 7200;
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(JSON.stringify({ id: '1', email: 'user@test.com', exp: futureExp }));
+    const validJwt = `${header}.${payload}.signature`;
+
+    localStorage.setItem('token', validJwt);
+    service.currentUserToken.set(validJwt);
+    service.inactivityTimeoutMs = 10000;
+    service.startInactivityTracker();
+
+    // Advance 6 seconds
+    vi.advanceTimersByTime(6000);
+    expect(service.isAuthenticated()).toBe(true);
+
+    // User interacts with the page
+    window.dispatchEvent(new Event('mousedown'));
+
+    // Advance another 6 seconds (total 12s, but only 6s since last interaction)
+    vi.advanceTimersByTime(6000);
+
+    expect(localStorage.getItem('token')).toBe(validJwt);
+    expect(service.isAuthenticated()).toBe(true);
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+
+  it('should reset inactivity timer when activity is signaled from another tab via storage event', () => {
+    vi.useFakeTimers();
+    const futureExp = Math.floor(Date.now() / 1000) + 7200;
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = btoa(JSON.stringify({ id: '1', email: 'user@test.com', exp: futureExp }));
+    const validJwt = `${header}.${payload}.signature`;
+
+    localStorage.setItem('token', validJwt);
+    service.currentUserToken.set(validJwt);
+    service.inactivityTimeoutMs = 10000;
+    service.startInactivityTracker();
+
+    // Advance 7 seconds
+    vi.advanceTimersByTime(7000);
+
+    // Storage event from another tab
+    const storageEvent = new StorageEvent('storage', {
+      key: 'auth_last_activity',
+      newValue: Date.now().toString(),
+    });
+    window.dispatchEvent(storageEvent);
+
+    // Advance another 6 seconds
+    vi.advanceTimersByTime(6000);
+
+    expect(localStorage.getItem('token')).toBe(validJwt);
+    expect(routerSpy.navigate).not.toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
 });

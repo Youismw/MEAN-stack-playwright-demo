@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import { Types } from 'mongoose';
 
 const { app } = await import('../app.js');
-const { connectDatabases, closeDatabases, userDbConnection } = await import('../config/db.js');
+const { connectDatabases, closeDatabases, mainDbConnection } = await import('../config/db.js');
 const { User } = await import('../models/User.js');
 
 test.describe('Auth Routes Unit Tests', () => {
@@ -18,8 +18,8 @@ test.describe('Auth Routes Unit Tests', () => {
   test.beforeAll(async () => {
     await connectDatabases();
     // CRITICAL GUARD: Refuse to execute or delete records unless connected to a test database
-    if (!userDbConnection.name || !userDbConnection.name.endsWith('_test')) {
-      throw new Error(`CRITICAL GUARD: Refusing to wipe non-test database: '${userDbConnection.name}'`);
+    if (!mainDbConnection.name || !mainDbConnection.name.endsWith('_test')) {
+      throw new Error(`CRITICAL GUARD: Refusing to wipe non-test database: '${mainDbConnection.name}'`);
     }
     await User.deleteMany({});
     await User.create({

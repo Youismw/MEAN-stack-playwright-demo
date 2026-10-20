@@ -104,13 +104,14 @@
         <p class="demo-hint">Developer credentials: <code>qa.user@quicktix.test</code> / <code>Passw0rd!test</code> (Persistent tickets)</p>
         <button
           type="button"
-          (click)="fillDemoCredentials()"
+          (click)="fillDemoCredentials(true)"
           class="btn-demo-fill"
+          data-testid="auto-signin-demo"
         >
           <svg class="btn-svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
           </svg>
-          Auto-fill Demo Credentials
+          Auto Sign In with Demo Account
         </button>
         <p class="demo-subhint">Note: Password has a zero <code>0</code>, not the letter <code>o</code>.</p>
       </footer>

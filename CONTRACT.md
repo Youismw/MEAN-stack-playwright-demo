@@ -60,7 +60,7 @@ Base URL: `/api`
 
 ### Health & Reset Endpoints
 - `GET /api/health`
-  - Returns `200 { status: "ok", mongo: "connected" }` ONLY when `mongoose.connection.readyState === 1`.
+  - Returns `200 { status: "ok", mongo: "connected" }` ONLY when `mainDbConnection.readyState === 1`.
   - Returns `503` if disconnected.
 - `POST /api/test/reset`
   - Mounted **only** when `NODE_ENV === 'test'`. Returns `404` in production or development.
