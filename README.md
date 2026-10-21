@@ -145,8 +145,7 @@ npm run test:functional    # Positive, Negative, Validation, Error, Business log
 npm run test:ui-browser    # Responsive, Navigation, Keyboard, Accessibility
 npm run test:api           # REST API & Token contract tests
 npm run test:security      # Injection (XSS), IDOR, and Rate-limiting
-npm run test:perf          # Navigation timing & SLA latency checks
-npm run test:resilience    # Network abort, 500 fault injection, Concurrency
+npm run test:visual        # Screenshot comparison (@visual tag)
 
 # Run Playwright in interactive UI mode
 npm run test:ui

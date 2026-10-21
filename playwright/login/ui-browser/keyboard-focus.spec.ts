@@ -2,13 +2,26 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/ui-browser/
- * SPEC:      keyboard-focus.spec.ts
+ * MODULE:    keyboard-focus.spec.ts
+ * TAXONOMY:  2. UI & Browser Testing › Keyboard Navigation & Focus Behavior
  * ============================================================================
- * Keyboard accessibility and focus management testing:
- *   1. Tab key traverses form controls in natural reading order.
- *   2. Shift+Tab reverses focus traversal back to previous element.
- *   3. Pressing Enter inside password field submits the form.
- *   4. Active focus styling state is correctly engaged on input controls.
+ * WHAT THIS MODULE DOES:
+ * Validates full keyboard operability, logical focus transitions, and key listeners:
+ *   1. Sequential Tab Order: Verifies user can navigate through all interactive
+ *      elements (tabs -> inputs -> buttons) using only the Tab key.
+ *   2. Shift+Tab Reverse: Verifies Shift+Tab reverses focus sequentially.
+ *   3. Enter Key Submission: Confirms pressing Enter inside form inputs triggers
+ *      submission without requiring mouse clicks.
+ *
+ * COMMUNICATES WITH:
+ *   - Playwright Keyboard Dispatcher: `page.keyboard.press()`
+ *   - DOM Focus Management: `expect(locator).toBeFocused()`
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. Visitor navigates using keyboard only.
+ *   2. Browser dispatches sequential Tab key events.
+ *   3. DOM activeElement shifts logically from top to bottom.
+ *   4. Form submits successfully upon pressing Enter.
  * ============================================================================
  */
 
@@ -26,31 +39,31 @@ test.describe('Login Component › UI & Browser › Keyboard & Focus Behavior', 
     'Tab key traverses interactive elements in logical order',
     { tag: ['@login', '@keyboard'] },
     async ({ page }) => {
-      // 1. Focus first tab button
+      // Step 1: Focus first tab button ("Sign In")
       await page.getByTestId('tab-login').focus();
       await expect(page.getByTestId('tab-login')).toBeFocused();
 
-      // 2. Tab to second tab (Create Account)
+      // Step 2: Tab to second tab ("Create Account")
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('tab-register')).toBeFocused();
 
-      // 3. Tab to Email input
+      // Step 3: Tab to Email input field
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('login-email')).toBeFocused();
 
-      // 4. Tab to Password input
+      // Step 4: Tab to Password input field
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('login-password')).toBeFocused();
 
-      // 5. Tab to Submit button
+      // Step 5: Tab to primary Submit button
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('login-submit')).toBeFocused();
 
-      // 6. Tab to Mode switch button
+      // Step 6: Tab to Mode switch button link
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('auth-switch-mode')).toBeFocused();
 
-      // 7. Tab to Demo auto sign-in button
+      // Step 7: Tab to Demo auto sign-in shortcut button
       await page.keyboard.press('Tab');
       await expect(page.getByTestId('auto-signin-demo')).toBeFocused();
     }
@@ -60,11 +73,11 @@ test.describe('Login Component › UI & Browser › Keyboard & Focus Behavior', 
     'Shift+Tab moves focus in reverse direction',
     { tag: ['@login', '@keyboard'] },
     async ({ page }) => {
-      // 1. Focus password input
+      // Step 1: Place active focus on the password input field
       await page.getByTestId('login-password').focus();
       await expect(page.getByTestId('login-password')).toBeFocused();
 
-      // 2. Press Shift+Tab to jump back to Email input
+      // Step 2: Press Shift+Tab to jump focus backward into the email input field
       await page.keyboard.press('Shift+Tab');
       await expect(page.getByTestId('login-email')).toBeFocused();
     }
@@ -74,14 +87,14 @@ test.describe('Login Component › UI & Browser › Keyboard & Focus Behavior', 
     'Pressing Enter inside password field triggers form submission',
     { tag: ['@login', '@keyboard'] },
     async ({ page }) => {
-      // 1. Fill invalid credentials using keyboard
+      // Step 1: Type invalid credentials via keyboard
       await page.getByTestId('login-email').fill('wrong.email@quicktix.test');
       await page.getByTestId('login-password').fill('WrongPassword123');
 
-      // 2. Press Enter while still in the password input
+      // Step 2: Press Enter while active focus remains in the password input
       await page.keyboard.press('Enter');
 
-      // 3. Form submits and triggers error alert without any mouse click
+      // Step 3: Assert form submission was dispatched and error banner is displayed
       const errorAlert = page.getByTestId('login-error');
       await expect(errorAlert).toBeVisible();
     }

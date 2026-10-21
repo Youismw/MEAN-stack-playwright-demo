@@ -2,12 +2,28 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/security/
- * SPEC:      rate-limiting.spec.ts
+ * MODULE:    rate-limiting.spec.ts
+ * TAXONOMY:  5. Security Testing › Rate Limiting, Abuse Prevention & Brute-Force Defense
  * ============================================================================
- * Security Testing: Rate limiting and brute-force mitigation on auth endpoints.
- *   1. POST /api/auth/login returns standard IETF RateLimit-* headers.
- *   2. POST /api/auth/register returns standard RateLimit-* headers.
- *   3. Rate-limiting headers decrement on repeated attempts.
+ * WHAT THIS MODULE DOES:
+ * Tests the application's anti-abuse and rate-limiting infrastructure:
+ *   1. Standard IETF / Legacy RateLimit Headers: Verifies authentication routes
+ *      attach standard rate-limiting headers (e.g. `ratelimit-limit`, `ratelimit-remaining`).
+ *   2. Registration Throttling: Confirms POST /api/auth/register attaches rate-limiting
+ *      metadata to deter automated mass account creation bots.
+ *   3. Remaining Counter Decrement: Asserts repeated failed attempts decrement the
+ *      remaining quota counter, mitigating brute-force password guessing.
+ *
+ * COMMUNICATES WITH:
+ *   - Express Middleware: `loginLimiter` & `registerLimiter` in `server/src/routes/auth.routes.ts`
+ *   - Package: `express-rate-limit`
+ *   - Playwright APIRequestContext (`request` fixture)
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. Automated worker sends HTTP requests to `/api/auth/login`.
+ *   2. `loginLimiter` intercepts the request and increments client IP counter.
+ *   3. Server returns headers (`RateLimit-Limit`, `RateLimit-Remaining`).
+ *   4. Tests assert security invariants without requiring full browser DOM boot.
  * ============================================================================
  */
 
@@ -19,7 +35,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
     'Login endpoint returns standard rate-limiting headers to protect against brute-force',
     { tag: ['@security', '@rate-limiting', '@login'] },
     async ({ request }) => {
-      // 1. Issue login request via APIRequestContext
+      // Step 1: Issue login request via Playwright APIRequestContext
       const res = await request.post('/api/auth/login', {
         data: {
           email: TEST_USERS.bot.email,
@@ -29,7 +45,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
 
       expect(res.status()).toBe(200);
 
-      // 2. Validate presence of RateLimit headers
+      // Step 2: Validate presence of standard RateLimit headers returned by express-rate-limit
       const headers = res.headers();
       const rateLimitHeader = headers['ratelimit-limit'] || headers['x-ratelimit-limit'];
       expect(rateLimitHeader).toBeTruthy();
@@ -43,7 +59,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
     'Registration endpoint enforces rate-limiting headers to deter automated bot signups',
     { tag: ['@security', '@rate-limiting', '@login'] },
     async ({ request }) => {
-      // 1. Send registration probe
+      // Step 1: Send registration probe
       const res = await request.post('/api/auth/register', {
         data: {
           email: `probe_${Date.now()}@quicktix.test`,
@@ -53,7 +69,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
 
       expect(res.status()).toBe(201);
 
-      // 2. Assert rate limit headers attached
+      // Step 2: Assert rate limit headers are attached to registration responses
       const headers = res.headers();
       const rateLimitHeader = headers['ratelimit-limit'] || headers['x-ratelimit-limit'];
       expect(rateLimitHeader).toBeTruthy();
@@ -64,7 +80,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
     'Sequential failed login attempts decrement rate-limit remaining counter',
     { tag: ['@security', '@rate-limiting', '@login'] },
     async ({ request }) => {
-      // 1. Attempt 1 with invalid credentials
+      // Step 1: Attempt 1 with invalid credentials
       const res1 = await request.post('/api/auth/login', {
         data: {
           email: 'attacker@quicktix.test',
@@ -74,7 +90,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
       expect(res1.status()).toBe(401);
       const remaining1 = parseInt(res1.headers()['ratelimit-remaining'] || '0', 10);
 
-      // 2. Attempt 2 with invalid credentials
+      // Step 2: Attempt 2 with invalid credentials
       const res2 = await request.post('/api/auth/login', {
         data: {
           email: 'attacker@quicktix.test',
@@ -84,7 +100,7 @@ test.describe('Login Component › Security › Rate Limiting & Abuse Prevention
       expect(res2.status()).toBe(401);
       const remaining2 = parseInt(res2.headers()['ratelimit-remaining'] || '0', 10);
 
-      // 3. Rate limit counter should be decrementing or equal if handled in single tick
+      // Step 3: Assert rate limit remaining counter decrements or equals if handled within single tick
       expect(remaining2).toBeLessThanOrEqual(remaining1);
     }
   );

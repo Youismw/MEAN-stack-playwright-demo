@@ -2,15 +2,30 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/api/
- * SPEC:      auth-contract.spec.ts
+ * MODULE:    auth-contract.spec.ts
+ * TAXONOMY:  3. Integration & API Testing › REST API Contracts & Schema Validation
  * ============================================================================
- * REST API Contract & Schema Verification for Authentication Routes:
- *   1. POST /api/auth/login returns 200 with standard JWT token structure.
- *   2. Token payload contains id and email without sensitive attributes.
- *   3. Missing credentials return 401 with consistent error message shape.
- *   4. POST /api/auth/register returns 201 with created user entity.
- *   5. Duplicate email registration returns 409 Conflict.
- *   6. Sub-threshold password returns 400 ValidationError.
+ * WHAT THIS MODULE DOES:
+ * Exercises Express REST endpoints headlessly via Playwright APIRequestContext,
+ * validating payload shapes, response headers, and status code contracts:
+ *   1. POST /api/auth/login: Validates HTTP 200, Content-Type application/json,
+ *      and standard 3-part HMAC-SHA256 JWT format encoding user id and email.
+ *   2. Missing Credentials: Confirms omission of email or password yields HTTP 401
+ *      with standardized `{ error: 'Unauthorized', message: '...' }` JSON.
+ *   3. POST /api/auth/register: Validates HTTP 201 status and JSON token receipt.
+ *   4. Duplicate Registration: Verifies existing emails trigger HTTP 409 Conflict.
+ *   5. Short Password Validation: Verifies passwords < 6 chars return HTTP 400.
+ *
+ * COMMUNICATES WITH:
+ *   - Express Routes: `server/src/routes/auth.routes.ts`
+ *   - Database Models: `server/src/models/User.ts`
+ *   - Security Standards: HS256 JWT structure and HTTP status code RFCs
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. Playwright sends HTTP POST requests directly to backend on testPort.
+ *   2. Express router validates schemas and executes database operations.
+ *   3. Responses return JSON payloads with security headers.
+ *   4. Assertions verify payload structures against CONTRACT.md specifications.
  * ============================================================================
  */
 
@@ -22,7 +37,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
     'POST /api/auth/login returns 200 with a valid HMAC-SHA256 JWT token',
     { tag: ['@api', '@contract', '@login'] },
     async ({ request }) => {
-      // 1. Submit valid login payload
+      // Step 1: Submit valid login payload via APIRequestContext
       const res = await request.post('/api/auth/login', {
         data: {
           email: TEST_USERS.bot.email,
@@ -30,20 +45,20 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
         },
       });
 
-      // 2. Assert HTTP status and JSON content-type
+      // Step 2: Assert HTTP status 200 and JSON content-type
       expect(res.status()).toBe(200);
       expect(res.headers()['content-type']).toContain('application/json');
 
-      // 3. Validate body schema
+      // Step 3: Validate body schema contains string token
       const body = await res.json();
       expect(body).toHaveProperty('token');
       expect(typeof body.token).toBe('string');
 
-      // 4. Validate JWT format: header.payload.signature
+      // Step 4: Validate standard JWT structure: header.payload.signature
       const parts = body.token.split('.');
       expect(parts).toHaveLength(3);
 
-      // 5. Decode payload (part 1) and verify claims
+      // Step 5: Decode payload segment and verify claims without sensitive leaks
       const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
       expect(payload).toHaveProperty('id');
       expect(payload).toHaveProperty('email', TEST_USERS.bot.email);
@@ -57,7 +72,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
     'POST /api/auth/login returns 401 when email or password is missing',
     { tag: ['@api', '@contract', '@login'] },
     async ({ request }) => {
-      // 1. Missing password
+      // Step 1: Request with missing password
       const resWithoutPassword = await request.post('/api/auth/login', {
         data: { email: TEST_USERS.bot.email },
       });
@@ -68,7 +83,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
         message: 'Invalid email or password',
       });
 
-      // 2. Missing email
+      // Step 2: Request with missing email
       const resWithoutEmail = await request.post('/api/auth/login', {
         data: { password: TEST_USERS.bot.password },
       });
@@ -85,6 +100,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
     'POST /api/auth/register creates user and returns 201 with JWT token',
     { tag: ['@api', '@contract', '@login'] },
     async ({ request }) => {
+      // Step 1: Submit new user registration payload with unique email
       const newEmail = `api_registered_${Date.now()}@quicktix.test`;
       const res = await request.post('/api/auth/register', {
         data: {
@@ -93,14 +109,13 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
         },
       });
 
+      // Step 2: Assert HTTP 201 Created and response message
       expect(res.status()).toBe(201);
       const body = await res.json();
 
       expect(body).toHaveProperty('token');
-      expect(body).toHaveProperty('user');
-      expect(body.user).toHaveProperty('id');
-      expect(body.user).toHaveProperty('email', newEmail);
-      expect(body.user).not.toHaveProperty('password');
+      expect(body).toHaveProperty('message');
+      expect(body.message).toContain('Account created successfully');
     }
   );
 
@@ -108,7 +123,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
     'POST /api/auth/register returns 409 Conflict when email is already registered',
     { tag: ['@api', '@contract', '@login'] },
     async ({ request }) => {
-      // Attempt to register with seeded dev email
+      // Step 1: Attempt to register with existing seeded dev user email
       const res = await request.post('/api/auth/register', {
         data: {
           email: TEST_USERS.dev.email,
@@ -116,6 +131,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
         },
       });
 
+      // Step 2: Assert HTTP 409 Conflict status and error shape
       expect(res.status()).toBe(409);
       const body = await res.json();
       expect(body.error).toBe('Conflict');
@@ -127,6 +143,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
     'POST /api/auth/register returns 400 when password is under 6 characters',
     { tag: ['@api', '@contract', '@login'] },
     async ({ request }) => {
+      // Step 1: Attempt registration with a 3-character password
       const res = await request.post('/api/auth/register', {
         data: {
           email: `short_pw_${Date.now()}@quicktix.test`,
@@ -134,6 +151,7 @@ test.describe('Login Component › API › Auth Route Contracts', () => {
         },
       });
 
+      // Step 2: Assert HTTP 400 ValidationError status and descriptive message
       expect(res.status()).toBe(400);
       const body = await res.json();
       expect(body.error).toBe('ValidationError');

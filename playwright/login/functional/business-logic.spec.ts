@@ -2,13 +2,31 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/functional/
- * SPEC:      business-logic.spec.ts
+ * MODULE:    business-logic.spec.ts
+ * TAXONOMY:  1. Functional Testing › Business Rules & Session Lifecycle
  * ============================================================================
- * Business rules, session lifecycle, and authentication state logic:
- *   1. Active session auto-redirects from /login directly to /tickets.
- *   2. Visiting /register opens form directly in Create Account mode.
- *   3. Successful login persists token and user info into localStorage.
- *   4. Logging out clears session credentials and redirects to /login.
+ * WHAT THIS MODULE DOES:
+ * Tests domain-specific business rules, session states, and authentication lifecycle:
+ *   1. Auto-Redirect on Active Session: An already authenticated visitor attempting
+ *      to access `/login` is automatically redirected to `/tickets`.
+ *   2. Direct Deep-Linking to `/register`: Direct navigation to `/register`
+ *      initializes the view directly in "Create Account" mode.
+ *   3. Token Persistence in LocalStorage: Successful authentication persists the JWT
+ *      in `window.localStorage['token']`, encoding valid user claims.
+ *   4. Session Teardown on Sign Out: Clicking "Sign Out" cleanses `localStorage`
+ *      and returns the user to the login view.
+ *
+ * COMMUNICATES WITH:
+ *   - Client Services: `AuthService.isAuthenticated()`, `AuthService.login()`, and `AuthService.logout()`
+ *   - Client Router: `@angular/router` navigation guards and route transitions
+ *   - Storage: Browser `window.localStorage`
+ *   - Backend Routes: `POST /api/auth/login`
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. Test evaluates session boundary conditions (logged-in vs logged-out).
+ *   2. Direct deep links or authentication events are performed.
+ *   3. Angular's `ngOnInit()` in `LoginComponent` checks `authService.isAuthenticated()`.
+ *   4. System executes state routing and asserts browser localStorage state.
  * ============================================================================
  */
 
@@ -16,11 +34,14 @@ import { test, expect } from '../../fixtures/base.fixture.js';
 import { TEST_USERS } from '../../fixtures/mock-data.js';
 
 test.describe('Login Component › Functional › Business Logic', () => {
+  // Ensure unauthenticated context so /login and /register load without auto-redirecting
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test(
     'Already authenticated user visiting /login directly is auto-redirected to /tickets',
     { tag: ['@login', '@business-logic'] },
     async ({ page, request }) => {
-      // 1. Obtain valid auth token directly from API
+      // Step 1: Obtain a valid authentication token directly from the backend API
       const authRes = await request.post('/api/auth/login', {
         data: {
           email: TEST_USERS.bot.email,
@@ -29,16 +50,15 @@ test.describe('Login Component › Functional › Business Logic', () => {
       });
       const authData = await authRes.json();
 
-      // 2. Pre-populate active session in browser before navigating
-      await page.addInitScript(({ token, user }) => {
+      // Step 2: Inject active session token into browser localStorage before page navigation
+      await page.addInitScript((token) => {
         window.localStorage.setItem('token', token);
-        window.localStorage.setItem('user', JSON.stringify(user));
-      }, authData);
+      }, authData.token);
 
-      // 3. Attempt direct visit to /login
+      // Step 3: Attempt direct visit to /login while authenticated
       await page.goto('/login');
 
-      // 4. Assert auto-redirect intercepts and routes to /tickets
+      // Step 4: Assert LoginComponent.ngOnInit() intercepts and auto-redirects to /tickets
       await expect(page).toHaveURL(/.*\/tickets/);
       await expect(page.getByTestId('ticket-list')).toBeVisible();
     }
@@ -48,10 +68,10 @@ test.describe('Login Component › Functional › Business Logic', () => {
     'Visiting /register URL directly opens the page in Create Account mode',
     { tag: ['@login', '@business-logic'] },
     async ({ page }) => {
-      // 1. Visit /register directly in logged-out context
+      // Step 1: Visit /register directly in an unauthenticated context
       await page.goto('/register');
 
-      // 2. Verify form initialized in Create Account mode
+      // Step 2: Verify component detected the /register route and initialized in Create Account mode
       const heading = page.getByRole('heading', { level: 2 });
       await expect(heading).toHaveText('Create Account');
 
@@ -67,28 +87,28 @@ test.describe('Login Component › Functional › Business Logic', () => {
     'Successful login persists token and user object into localStorage',
     { tag: ['@login', '@business-logic'] },
     async ({ page }) => {
-      // 1. Visit login page with empty storage
+      // Step 1: Visit login page with an empty session
       await page.goto('/login');
 
-      // 2. Perform valid login
+      // Step 2: Complete valid login with bot credentials
       await page.getByTestId('login-email').fill(TEST_USERS.bot.email);
       await page.getByTestId('login-password').fill(TEST_USERS.bot.password);
       await page.getByTestId('login-submit').click();
 
-      // 3. Await dashboard arrival
+      // Step 3: Wait for successful transition to dashboard
       await expect(page).toHaveURL(/.*\/tickets/);
 
-      // 4. Inspect browser localStorage
+      // Step 4: Inspect browser localStorage to confirm token persistence
       const token = await page.evaluate(() => window.localStorage.getItem('token'));
-      const userStr = await page.evaluate(() => window.localStorage.getItem('user'));
-
       expect(token).toBeTruthy();
       expect(typeof token).toBe('string');
       expect(token!.length).toBeGreaterThan(20);
 
-      expect(userStr).toBeTruthy();
-      const user = JSON.parse(userStr!);
-      expect(user.email).toBe(TEST_USERS.bot.email);
+      // Step 5: Verify the stored JWT token decodes to the authenticated user's email
+      const parts = token!.split('.');
+      expect(parts).toHaveLength(3);
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      expect(payload.email).toBe(TEST_USERS.bot.email);
     }
   );
 
@@ -96,21 +116,21 @@ test.describe('Login Component › Functional › Business Logic', () => {
     'Signing out purges localStorage session data and returns to /login',
     { tag: ['@login', '@business-logic'] },
     async ({ page }) => {
-      // 1. Start from valid session via demo auto-login
+      // Step 1: Establish active session via demo auto-login button
       await page.goto('/login');
       await page.getByTestId('auto-signin-demo').click();
       await expect(page).toHaveURL(/.*\/tickets/);
 
-      // 2. Click sign out button in header
+      // Step 2: Locate and click the Sign Out button in the header
       const logoutBtn = page.getByRole('button', { name: /logout|sign out/i });
       await expect(logoutBtn).toBeVisible();
       await logoutBtn.click();
 
-      // 3. Assert redirected back to /login
+      // Step 3: Assert user is returned to /login with form visible
       await expect(page).toHaveURL(/.*\/login/);
       await expect(page.getByTestId('login-email')).toBeVisible();
 
-      // 4. Assert token cleared
+      // Step 4: Verify authentication token was completely purged from localStorage
       const token = await page.evaluate(() => window.localStorage.getItem('token'));
       expect(token).toBeNull();
     }

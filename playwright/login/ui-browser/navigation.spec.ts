@@ -2,12 +2,30 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/ui-browser/
- * SPEC:      navigation.spec.ts
+ * MODULE:    navigation.spec.ts
+ * TAXONOMY:  2. UI & Browser Testing › Navigation, Header State & Routing
  * ============================================================================
- * Navigation, header state, and client-side routing transitions:
- *   1. Header displays login-variant branding without leaking user controls.
- *   2. Tab switching seamlessly updates card title, description, and button text.
- *   3. Browser back-forward navigation preserves session integrity after sign-in.
+ * WHAT THIS MODULE DOES:
+ * Tests routing transitions, header branding states, and browser history:
+ *   1. Header State Isolation: Confirms the login page header shows brand elements
+ *      (QuickTix, Architectural Edition badge) but hides authenticated actions
+ *      (like "+ New Ticket" and "Sign Out").
+ *   2. View Transitions: Tests smooth UI updates when switching between tabs without
+ *      causing full browser refreshes.
+ *   3. Browser Back Button Session Integrity: Verifies that pressing the browser's
+ *      Back button after logging in keeps the session safe and prevents returning
+ *      to an unauthenticated state.
+ *
+ * COMMUNICATES WITH:
+ *   - Components: `HeaderComponent` (`client/src/app/components/header/header.component.ts`)
+ *   - Client Router: `@angular/router` navigation and browser history API (`page.goBack()`)
+ *   - Route Guard: `AuthGuard`
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. User visits `/login`.
+ *   2. Header renders in "login" variant with `[showUserActions]="false"`.
+ *   3. User performs actions and transitions routes.
+ *   4. Angular router synchronizes view and manages history stack cleanly.
  * ============================================================================
  */
 
@@ -25,15 +43,15 @@ test.describe('Login Component › UI & Browser › Navigation & Routing', () =>
     'Login header renders branding and hides authenticated user actions',
     { tag: ['@login', '@navigation'] },
     async ({ page }) => {
-      // 1. Header is present
+      // Step 1: Assert app header component is mounted
       const header = page.locator('app-header');
       await expect(header).toBeVisible();
 
-      // 2. Contains brand title and edition badge
-      await expect(page.getByText('QuickTix')).toBeVisible();
+      // Step 2: Confirm brand title and architectural edition badge are visible
+      await expect(page.locator('.brand-title')).toContainText(/quicktix/i);
       await expect(page.getByText('ARCHITECTURAL EDITION')).toBeVisible();
 
-      // 3. Authenticated actions (e.g. ticket create button, user badge) are not rendered
+      // Step 3: Confirm authenticated controls are hidden on the unauthenticated login view
       await expect(page.getByTestId('ticket-new')).toBeHidden();
       await expect(page.getByRole('button', { name: /logout|sign out/i })).toBeHidden();
     }
@@ -47,18 +65,18 @@ test.describe('Login Component › UI & Browser › Navigation & Routing', () =>
       const description = page.locator('.card-description');
       const submitBtn = page.getByTestId('login-submit');
 
-      // 1. Initial Sign In state
+      // Step 1: Verify initial Sign In text and description
       await expect(heading).toHaveText('Sign In');
       await expect(description).toContainText(/access your engineering ticket stream/i);
       await expect(submitBtn).toHaveText('Sign In');
 
-      // 2. Switch to Create Account
+      // Step 2: Click Create Account tab and verify title and description adapt
       await page.getByTestId('tab-register').click();
       await expect(heading).toHaveText('Create Account');
       await expect(description).toContainText(/set up your personal ticket workspace/i);
       await expect(submitBtn).toHaveText('Create Account');
 
-      // 3. Switch back to Sign In
+      // Step 3: Switch back to Sign In and verify clean restoration
       await page.getByTestId('tab-login').click();
       await expect(heading).toHaveText('Sign In');
       await expect(submitBtn).toHaveText('Sign In');
@@ -69,15 +87,15 @@ test.describe('Login Component › UI & Browser › Navigation & Routing', () =>
     'Browser back button preserves protected session after logging in',
     { tag: ['@login', '@navigation'] },
     async ({ page }) => {
-      // 1. Log in via demo button
+      // Step 1: Complete sign in using the demo auto-signin action
       await page.getByTestId('auto-signin-demo').click();
       await expect(page).toHaveURL(/.*\/tickets/);
       await expect(page.getByTestId('ticket-list')).toBeVisible();
 
-      // 2. Press browser back button
+      // Step 2: Simulate pressing the browser's native Back button
       await page.goBack();
 
-      // 3. Angular AuthGuard / LoginComponent.ngOnInit intercepts because user is already authenticated
+      // Step 3: Angular AuthGuard / LoginComponent.ngOnInit intercepts active session and redirects back to /tickets
       await expect(page).toHaveURL(/.*\/tickets/);
       await expect(page.getByTestId('ticket-list')).toBeVisible();
     }

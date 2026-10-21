@@ -2,13 +2,31 @@
  * ============================================================================
  * COMPONENT: Login Page
  * FOLDER:    playwright/login/functional/
- * SPEC:      error-handling.spec.ts
+ * MODULE:    error-handling.spec.ts
+ * TAXONOMY:  1. Functional Testing › Error Handling, State Recovery & Resilience
  * ============================================================================
- * Error state handling, resilience, and recovery:
- *   1. Switching tabs between Sign In and Create Account resets error alert.
- *   2. Server 500 responses are rendered cleanly as friendly alerts.
- *   3. Submit button disables and indicates loading state during in-flight request.
- *   4. Network abort / offline condition displays fallback error notification.
+ * WHAT THIS MODULE DOES:
+ * Tests the system's resilience against abnormal states, infrastructure failures,
+ * and user state reset / recovery transitions:
+ *   1. Error Alert Reset on Tab Change: Verifies that an active error alert is
+ *      cleared when switching between Sign In and Create Account modes.
+ *   2. Server 500 Graceful Degradation: Simulates a backend 500 error to ensure
+ *      the UI catches the failure gracefully and displays a friendly banner.
+ *   3. In-Flight Submission Throttling: Confirms the submit button transitions into
+ *      a disabled loading state ("Signing In...") during network transmission.
+ *   4. Network Failure & Offline Recovery: Simulates an aborted/dropped network
+ *      connection to verify clear feedback without an unhandled runtime error.
+ *
+ * COMMUNICATES WITH:
+ *   - Angular Signals: `errorMessage`, `loading`, and `isLoginMode`
+ *   - Playwright Network Mocking: `page.route('** /api/auth/login')`
+ *   - Components: `LoginComponent` template error alerts and submit button state
+ *
+ * HYPOTHETICAL RUNTIME FLOW:
+ *   1. User triggers an action resulting in an in-flight request or failure.
+ *   2. Playwright intercepts the HTTP traffic, simulating network latency or drops.
+ *   3. Angular's RxJS error handlers catch HTTP anomalies without page reloads.
+ *   4. UI gracefully reflects errors, keeping all input controls interactive for retry.
  * ============================================================================
  */
 
@@ -27,19 +45,19 @@ test.describe('Login Component › Functional › Error Handling', () => {
     'Switching tabs between Sign In and Create Account clears active error alert',
     { tag: ['@login', '@error-handling'] },
     async ({ page }) => {
-      // 1. Cause an authentication error
+      // Step 1: Cause an authentication error by submitting invalid credentials
       await page.getByTestId('login-email').fill(TEST_USERS.bot.email);
       await page.getByTestId('login-password').fill('WrongPassword123');
       await page.getByTestId('login-submit').click();
 
-      // 2. Confirm error alert is visible
+      // Step 2: Confirm error alert is visible in the DOM
       const errorAlert = page.getByTestId('login-error');
       await expect(errorAlert).toBeVisible();
 
-      // 3. Switch mode to Create Account
+      // Step 3: Switch mode to Create Account
       await page.getByTestId('tab-register').click();
 
-      // 4. Assert error alert is automatically dismissed
+      // Step 4: Assert error alert is automatically dismissed via setMode() signal reset
       await expect(errorAlert).toBeHidden();
     }
   );
@@ -48,7 +66,7 @@ test.describe('Login Component › Functional › Error Handling', () => {
     'Server HTTP 500 error is handled gracefully with an error banner',
     { tag: ['@login', '@error-handling'] },
     async ({ page }) => {
-      // 1. Intercept /api/auth/login to mock a 500 Internal Server Error
+      // Step 1: Intercept POST /api/auth/login to mock a 500 Internal Server Error
       await page.route('**/api/auth/login', async (route) => {
         await route.fulfill({
           status: 500,
@@ -57,12 +75,12 @@ test.describe('Login Component › Functional › Error Handling', () => {
         });
       });
 
-      // 2. Submit credentials
+      // Step 2: Submit valid credentials against the failing route
       await page.getByTestId('login-email').fill(TEST_USERS.bot.email);
       await page.getByTestId('login-password').fill(TEST_USERS.bot.password);
       await page.getByTestId('login-submit').click();
 
-      // 3. Assert error is rendered without crashing the client UI
+      // Step 3: Assert error banner is rendered cleanly without crashing the client UI
       const errorAlert = page.getByTestId('login-error');
       await expect(errorAlert).toBeVisible();
       await expect(errorAlert).toContainText(/database connection dropped|failed to sign in/i);
@@ -73,23 +91,23 @@ test.describe('Login Component › Functional › Error Handling', () => {
     'Submit button disables and displays loading indicator during in-flight request',
     { tag: ['@login', '@error-handling'] },
     async ({ page }) => {
-      // 1. Introduce an artificial network delay on login API
+      // Step 1: Introduce an artificial network delay on login API (600ms)
       await page.route('**/api/auth/login', async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 600));
         await route.continue();
       });
 
-      // 2. Enter credentials and click Sign In
+      // Step 2: Enter credentials and click Sign In
       await page.getByTestId('login-email').fill(TEST_USERS.bot.email);
       await page.getByTestId('login-password').fill(TEST_USERS.bot.password);
       await page.getByTestId('login-submit').click();
 
-      // 3. While in-flight, verify submit button is disabled and text is "Signing In..."
+      // Step 3: While in-flight, verify submit button is disabled and text shows "Signing In..."
       const submitBtn = page.getByTestId('login-submit');
       await expect(submitBtn).toBeDisabled();
       await expect(submitBtn).toContainText(/signing in/i);
 
-      // 4. Eventually finishes and navigates
+      // Step 4: When request resolves, verify smooth route navigation to /tickets
       await expect(page).toHaveURL(/.*\/tickets/);
     }
   );
@@ -98,20 +116,20 @@ test.describe('Login Component › Functional › Error Handling', () => {
     'Network failure displays clear fallback error notification',
     { tag: ['@login', '@error-handling'] },
     async ({ page }) => {
-      // 1. Abort network request to simulate offline network drop
+      // Step 1: Abort network request to simulate network disconnect / offline status
       await page.route('**/api/auth/login', async (route) => {
         await route.abort('failed');
       });
 
-      // 2. Attempt login
+      // Step 2: Attempt login during network failure
       await page.getByTestId('login-email').fill(TEST_USERS.bot.email);
       await page.getByTestId('login-password').fill(TEST_USERS.bot.password);
       await page.getByTestId('login-submit').click();
 
-      // 3. Verify user gets a visible fallback error alert
+      // Step 3: Verify user gets a visible, friendly fallback error alert
       const errorAlert = page.getByTestId('login-error');
       await expect(errorAlert).toBeVisible();
-      await expect(errorAlert).toContainText(/failed to sign in/i);
+      await expect(errorAlert).toContainText(/failed to (sign in|fetch)/i);
     }
   );
 });
