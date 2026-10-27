@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit && npm run typecheck --prefix server && npm run build --prefix client"
   },
   "devDependencies": {
-    "@types/node": "^22.10.7",
+    "@types/node": "^26.6.5",
     "dotenv": "^16.4.7",
     "typescript": "^5.7.3"
   }
