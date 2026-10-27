@@ -10,7 +10,7 @@
  * ============================================================================
  * WHAT THIS MODULE DOES:
  * Configures Playwright to run backend unit/integration tests located in
- * `server/src/**/*.test.ts` without browser overhead (pure Node.js execution).
+ * `server/src` unit and integration test files without browser overhead (pure Node.js execution).
  *   - Sets testDir to './src'
  *   - Enforces sequential execution (workers: 1, fullyParallel: false) to
  *     guarantee test database isolation.
@@ -19,7 +19,7 @@
  *
  * COMMUNICATES WITH:
  *   - Consumed by `npm run test:server` and `npm test` inside `server/`.
- *   - Discovers all `server/src/**/*.test.ts` test files.
+ *   - Discovers all test files in server/src.
  *
  * HYPOTHETICAL RUNTIME FLOW:
  *   1. Developer runs `npm run test:server`.

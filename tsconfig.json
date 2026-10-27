@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "types": ["node", "@playwright/test"]
+    "types": ["node"]
   },
-  "include": ["playwright.config.ts", "e2e/**/*"]
+  "include": ["server/src/**/*"]
 }
